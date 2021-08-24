@@ -2,15 +2,10 @@ import datetime
 import time
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram_bot_calendar import LSTEP, WYearTelegramCalendar
 from geopy.geocoders import Nominatim
 import json
 import requests
-import os
 from validate_email import validate_email
-import atexit
-import random
-from PIL import Image
 
 geolocator = Nominatim(user_agent="tg_bot")
 url = 'https://tools.emailmatrix.ru/event-generator/'
@@ -36,17 +31,12 @@ url_keys = {"sport": "Спорт",
             "Общественная деаятельность": "public_govno"}
 
 x = (requests.post(url, json=myobj)).json()
-#ics, google = x['ics'], x['google']
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
-editing=0
+globalVar = dict()
 
 token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants
 bot = telebot.TeleBot(token)
-users = {}  # constants for db
 url = 'http://renat-hamatov.ru'
-with open('users.txt', "r") as json_file:
-    users = json.load(json_file)
-    # print(users.keys())
 
 
 def save_users(users):
@@ -62,7 +52,8 @@ def listener(messages):
             with open('logs.txt', 'a', encoding='utf-8') as logs_file:
                 logs_file.write("––––––––––––––––––––––––––––––––––––––––––––––––––––––\n")
                 logs_file.write(
-                    f'{m.chat.first_name}[{m.chat.id}][{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M")}]: {m.text}\n')
+                    f'{m.chat.first_name}[{m.chat.id}][{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M")}]: '
+                    f'{m.text}\n')
 
 
 bot.set_update_listener(listener)
@@ -70,93 +61,108 @@ bot.set_update_listener(listener)
 
 def menu():
     markup = InlineKeyboardMarkup()
-    markup.row_width = 1 #Ширина поля кнопок
+    markup.row_width = 1  # Ширина поля кнопок
     log_in = InlineKeyboardButton("Войти в систему", callback_data="log_in")
     registration = InlineKeyboardButton("Зарегистрироваться", callback_data="registration")
     markup.add(log_in, registration)
     return markup
 
+
 def menu2():
     markup = InlineKeyboardMarkup()
-    markup.row_width = 1 #Ширина поля кнопок
-    fuck_u = InlineKeyboardButton("Послать мишу нахуй", callback_data="fuck_u")
+    markup.row_width = 1  # Ширина поля кнопок
+    fuck_u = InlineKeyboardButton("Жалобы (в работе)", callback_data="appeals")
     exit = InlineKeyboardButton("Выйти из аккаунта", callback_data="exit")
     markup.add(fuck_u, exit)
     return markup
 
 
-def logging_in(message):
-    global editing
-    logs=[]
+def logging_in(message, id):
+    global globalVar
+    logs = list()
     logs.append(message.text)
+    globalVar[str(message.chat.id)]['to_delete'].append(id)
+    globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+    print(globalVar)
     if validate_email(logs[0]):
-        a = bot.edit_message_text('Введите адрес электронной почты для авторизации:', cmcd, cmmi) #editing = 0
-        a = bot.send_message(message.chat.id, 'Введите пароль:',reply_markup=back3()) #editing = 2
-        editing += 2
-        bot.register_next_step_handler(a,logging_in2,logs)
+        bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+        a = bot.send_message(message.chat.id, 'Введите пароль:', reply_markup=back3())  # editing = 2
+        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        bot.register_next_step_handler(a, logging_in2, logs, a.message_id)
 
     else:
-        a = bot.edit_message_text('Введите адрес электронной почты для авторизации:', cmcd, cmmi) #editing = 0
-        a = bot.send_message(message.chat.id, 'Недействительный адрес электронной почты\nВыберите действие:', reply_markup=back()) #editing = 2
-        editing +=2
+        bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+        d = bot.send_message(message.chat.id, 'Недействительный адрес электронной почты\nВыберите действие:',
+                         reply_markup=back())  # editing = 2
+        globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
 
-def logging_in2(message,logs):
-    global editing
+
+# Надо чтобы искал самое старое сообщение в списке
+def logging_in2(message, logs, id):
+    global globalVar
     logs.append(message.text)
-    print(logs)
-    print(tconv(message.date))
-
+    globalVar[str(message.chat.id)]['to_delete'].append(id)
+    globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     s = requests.Session()
     payload = {"email": logs[0], "password": logs[1]}
     send_to = 'signin'
     r = s.post(f'{url}/{send_to}', json=payload)
-    print(json.loads(r.text))
     try:
         if json.loads(r.text)['token']:
-            a = bot.edit_message_text('Введите пароль:', cmcd, cmmi+2)  # editing = 0
-            bot.delete_message(message.chat.id, message.message_id)
-            a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu2()) #editing = 4
-            editing +=2
+            s = requests.Session()
+            payload = {"email": logs[0], "password": logs[1], "chat_id": str(message.chat.id)}
+            send_to = 'telegram/connect'
+            r = s.post(f'{url}/{send_to}', json=payload)
+            try:
+                if json.loads(r.text)['user']:
+                    bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                    a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu2())  # editing = 4
+                    globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            except Exception:
+                bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                a = bot.send_message(message.chat.id, 'Ошибка! Ваш профиль уже привязан к телеграмму\nВыберите действие:',
+                                 reply_markup=menu())
+                globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
         else:
-            a = bot.edit_message_text('Введите пароль:', cmcd, cmmi + 2)
-            bot.delete_message(message.chat.id, message.message_id)
-            a = bot.send_message(message.chat.id,'Ошибка! Введенные данные неверны\nВыберите действие:',reply_markup=menu()) #editing = 4
-            editing +=2
-        """else:
-            bot.delete_message(message.chat.id, message.message_id)
-            a = bot.send_message(message.chat.id,'Ошибка! Ваш профиль уже привязан к телеграмму\nВыберите действие:', reply_markup=menu())"""
+            bot.edit_message_text('Введите пароль:', message.chat.id, id)
+            a = bot.send_message(message.chat.id, 'Ошибка! Введенные данные неверны\nВыберите действие:',
+                             reply_markup=menu())
+            # editing = 4
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
     except Exception:
-        a = bot.edit_message_text('Введите пароль:', cmcd, cmmi + 2)
-        bot.delete_message(message.chat.id, message.message_id)
-        a = bot.send_message(message.chat.id,'К сожалению, такого пользователя нет в базе данных',reply_markup=back()) #editing = 4
-        editing +=2
+        bot.edit_message_text('Введите пароль:', message.chat.id, id)
+        a = bot.send_message(message.chat.id, 'К сожалению, такого пользователя нет в базе данных', reply_markup=back())
+        # editing = 4
+        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
 
+    deleting(globalVar, message.chat.id)
+
+
+def deleting(to_delete, chat_id):
+    if len(globalVar[str(chat_id)]['to_delete']) != 0:
+        for message in globalVar[str(chat_id)]['to_delete']:
+            bot.delete_message(chat_id, message)
+    globalVar[str(chat_id)]['to_delete'] = list()
 
 
 def check2(id):
-    k = os.listdir(path="users")
-    for i in range (len(k)):
-        with open(f'users/{k[i]}','r') as f:
-            s=f.readlines()
-        if len(s)==2:
-            if int(s[1]) == int(id):
-                return True
-    return False
+    s = requests.Session()
+    payload = {"chat_id": str(id)}
+    send_to = 'telegram/user'
+    r = s.get(f'{url}/{send_to}', json=payload)
+    try:
+        if json.loads(r.text)['user']:
+            return True
+    except Exception:
+        return False
+
 
 def exit(id):
+    s = requests.Session()
+    payload = {"chat_id": str(id)}
+    send_to = 'telegram/disconnect'
+    s.post(f'{url}/{send_to}', json=payload)
 
-    k = os.listdir(path="users")
-    for i in range(len(k)):
-        with open(f'users/{k[i]}', 'r') as f:
-            s=f.readlines()
-        if len(s)==2:
-            if int(s[1])==int(id):
-                with open (f'users/{k[i]}', 'w') as f:
-                    f.write(s[0])
-                break
-
-
-    return False
 
 def back3():
     markup = InlineKeyboardMarkup()
@@ -173,72 +179,93 @@ def back():
     return markup
 
 
+def look_for_the_newest(globalvar):
+    max1 = 0
+    for key in globalvar:
+        key = str(key)
+        if int(globalvar[key]['message_id']) > max1:
+            max1 = int(globalvar[key]['message_id'])
+    return max1
+
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    global editing
-    if check2(message.chat.id):
-        bot.delete_message(message.chat.id, editing)
-        bot.delete_message(message.chat.id, message.message_id)
-        bot.send_message(message.chat.id, f"С возвращением, *{message.from_user.first_name}*!😢\nВыберите действие:", reply_markup=menu2(),parse_mode="Markdown")
-    else:
+    global globalVar
+    print(globalVar)
 
-        if message.message_id != 1 and editing!=0:
-            bot.delete_message(message.chat.id, editing)
+
+    if str(message.chat.id) not in globalVar:
+
+        globalVar[str(message.chat.id)] = {}
+        globalVar[str(message.chat.id)]['to_delete'] = list()
+        globalVar[str(message.chat.id)]['message_id'] = str(message.message_id)
+
+    deleting(globalVar, message.chat.id)
+
+    if check2(message.chat.id):
+        if int(globalVar[str(message.chat.id)]['message_id']) != message.message_id:
+            bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['message_id']))
+            globalVar[str(message.chat.id)]['message_id'] = str(message.message_id + 1)
+        s = requests.Session()
+        payload = {"chat_id": message.chat.id}
+        send_to = 'telegram/user'
+        r = s.get(f'{url}/{send_to}', json=payload)
         bot.delete_message(message.chat.id, message.message_id)
-        bot.send_message(message.chat.id, "Здравствуйте!😂\nВыберите действие:", reply_markup=menu())
-    if str(message.chat.id) not in users:
-        users[str(message.chat.id)] = [[], [], False]
-        save_users(users)
-    editing = message.message_id + 1
+        a = bot.send_message(message.chat.id, f"С возвращением, *{json.loads(r.text)['user']['firstname'].capitalize()}"
+                                          f"*!\nВыберите действие:", reply_markup=menu2(), parse_mode="Markdown")
+    else:
+        if int(globalVar[str(message.chat.id)]['message_id']) != message.message_id:
+            bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['message_id']))
+            globalVar[str(message.chat.id)]['message_id'] = str(look_for_the_newest(globalVar) + 1)
+
+        bot.delete_message(message.chat.id, message.message_id)
+        a = bot.send_message(message.chat.id, "Здравствуйте!\nВыберите действие:", reply_markup=menu())
+
+
+    globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
 
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
 def error(message):
     try:
+        deleting(globalVar, message.chat.id)
         bot.delete_message(message.chat.id, message.message_id)
-    except Exception as e:
+    except Exception:
         pass
-    bot.send_message(message.chat.id, 'Воспользуйтесь предложенными кнопками. '
+    a = bot.send_message(message.chat.id, 'Воспользуйтесь предложенными кнопками. '
                                       'Если кнопки исчезли, введите команду /start')
+    globalVar[str(message.chat.id)]['to_delete'].append(a.message_id)
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     try:
-        global cmcd, cmmi,url,editing
+        global cmcd, cmmi, url, globalVar
         cmcd = call.message.chat.id
         cmmi = call.message.message_id
-        print(call.message.chat.id, call.data)
-        with open(f"users.txt") as json_file:
-            users = json.load(json_file)
+        print(cmcd, call.data)
 
         if call.data == "log_in":
-            count=0
-            a = bot.edit_message_text("Введите адрес электронной почты для авторизации:",
-                                  cmcd, cmmi,reply_markup=back3())
-            bot.register_next_step_handler(a, logging_in)
-        elif call.data.startswith("_"):
-            print(1)
-            users[str(call.message.chat.id)][0].append(call.data[1:])
-            bot.edit_message_text("Вы успешно записались!!", cmcd, cmmi, reply_markup=menu())
-            save_users(users)
+            b = bot.edit_message_text("Введите адрес электронной почты для авторизации:",
+                                  cmcd, cmmi, reply_markup=back3())
+            deleting(globalVar, cmcd)
+            bot.register_next_step_handler(b, logging_in, cmmi)
         elif call.data == 'registration':
-            a = bot.delete_message(cmcd, cmmi)
-            a = bot.send_message(cmcd,f'Регистрация проходит на сайте:\n {url}')
-            a = bot.send_message(cmcd, 'Выберите действие🤬:',reply_markup=menu())
-            editing = cmmi+2
+            bot.delete_message(cmcd, cmmi)
+            a = bot.send_message(cmcd, f'Регистрация проходит на сайте:\n {url}', reply_markup=back3())
+            globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
-        elif call.data == 'fuck_u':
-            bot.edit_message_text('пашел нахуй', cmcd,cmmi,reply_markup=menu2())
+        elif call.data == 'appeals':
+            bot.edit_message_text('Жалобы', cmcd, cmmi, reply_markup=menu2())
 
         elif call.data == 'exit':
             exit(call.message.chat.id)
-            bot.edit_message_text('Вы вышли из аккаунта❗', cmcd,cmmi,reply_markup=menu())
+            bot.edit_message_text('Вы вышли из аккаунта❗', cmcd, cmmi, reply_markup=menu())
 
         elif call.data == 'back_to_menu':
-            bot.clear_step_handler_by_chat_id(cmcd)
-            bot.edit_message_text( 'Выберите действие😉:',cmcd, cmmi, reply_markup=menu())
-
+            bot.clear_step_handler_by_chat_id(cmcd)  # Может это вызывает ошибку при входе с двух устройств одновременно
+            deleting(globalVar, cmcd)
+            bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu())
 
         bot.answer_callback_query(call.id)
     except Exception as e:
