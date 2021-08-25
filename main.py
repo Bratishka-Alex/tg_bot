@@ -26,7 +26,7 @@ x = (requests.post(url, json=myobj)).json()
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants
+token = '1916725688:AAH7DNy9VshGWp1FE25K38Dv9kcuDRnj6_E'  # bot constants
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -78,6 +78,15 @@ def menu_appeals():
     markup.add(create__appeal, my__appeals, back_to_menu_authorized)
     return markup
 
+def choose_appeal():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2  # Ширина поля кнопок
+    choose_appeal_back = InlineKeyboardButton("<--", callback_data='choose_appeal_back')
+    choose_appeal_forward = InlineKeyboardButton("-->", callback_data="choose_appeal_forward")
+    back_to_menu_appeals = InlineKeyboardButton('Назад', callback_data='back_to_menu_appeals')
+    markup.add(choose_appeal_back, choose_appeal_forward, back_to_menu_appeals)
+    return markup
+
 
 def logging_in(message, id):
     global globalVar
@@ -99,7 +108,6 @@ def logging_in(message, id):
         globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
 
 
-# Надо чтобы искал самое старое сообщение в списке
 def logging_in2(message, logs, id):
     global globalVar
     logs.append(message.text)
@@ -194,34 +202,51 @@ def my_appeals(bot_message_id, id):
     payload = {"chat_id": str(id)}
     send_to = 'appeals/my'
     r = s.get(f'{url}/{send_to}', json=payload)
+    flag = False
     try:
-        a = json.loads(r.text)['appeals']
-        if json.loads(r.text)['appeals'] and len(a)!=0:
-            for appeal_id in range(len(a)):
-                t = a[appeal_id]
-                status = str(t['status'])
-                date = str(t['date'])[:10].split('-')
-                text = str(t['text'])
-                if status == 'waiting':
-                    status = 'Ожидание'
-                elif status == 'in_work':
-                    status = 'В работе'
-                elif status == 'done':
-                    status = "Выполнено"
-                elif status == 'rejected':
-                    status = 'Отклонено'
-                b = bot.send_message(id, f'Дата: *{date[2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*',
-                                     parse_mode="Markdown")
-                globalVar[str(id)]['to_delete'].append(b.message_id)
+        appeals = json.loads(r.text)['appeals']
+        flag = True
+        appeals = appeals[::-1]
+        if int(globalVar[str(id)]['move']) == len(appeals):
+            globalVar[str(id)]['move'] = str(len(appeals))
+            bot.edit_message_text('У вас нет более старых жалоб',  id, bot_message_id,
+                                 reply_markup=choose_appeal())
+        elif int(globalVar[str(id)]['move']) == -1:
+            globalVar[str(id)]['move'] = str(0)
+            bot.edit_message_text('У вас нет более новых жалоб', id, bot_message_id,
+                                 reply_markup=choose_appeal())
+        elif json.loads(r.text)['appeals'] and len(appeals)!=0:
+            appeal_id = int(globalVar[str(id)]['move'])
+            t = appeals[appeal_id]
+            date = str(t['date'])[:10].split('-')
+            status = str(t['status'])
+            text = str(t['text'])
+            if status == 'waiting':
+                status = 'Ожидание'
+            elif status == 'in_work':
+                status = 'В работе'
+            elif status == 'done':
+                status = "Выполнено"
+            elif status == 'rejected':
+                status = 'Отклонено'
+            if len(appeals)-1 == 0:
+                bot.edit_message_text(f'Дата: *{date[2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                                          bot_message_id, reply_markup=back_to_menu_appeals(), parse_mode="Markdown")
+            else:
+                bot.edit_message_text(f'Дата: *{date[2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                                          bot_message_id, reply_markup=choose_appeal(), parse_mode="Markdown")
+            globalVar[str(id)]['to_delete'].append(b.message_id)
         else:
             b = bot.send_message(id, 'Вы не отправляли ни одной жалобы')
             globalVar[str(id)]['to_delete'].append(b.message_id)
     except Exception:
-        b = bot.send_message(id, 'Вы не отправляли ни одной жалобы')
-        globalVar[str(id)]['to_delete'].append(b.message_id)
-    globalVar[str(id)]['to_delete'].append(bot_message_id)
-    a = bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_appeals())
-    globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+        if not flag:
+            b = bot.send_message(id, 'Вы не отправляли ни одной жалобы')
+            globalVar[str(id)]['to_delete'].append(b.message_id)
+            globalVar[str(id)]['to_delete'].append(bot_message_id)
+            a = bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_appeals())
+            globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -236,6 +261,7 @@ def send_welcome(message):
         globalVar[str(message.chat.id)]['topic'] = None
         globalVar[str(message.chat.id)]['error_messages'] = list()
         globalVar[str(message.chat.id)]['message_id'] = str(message.message_id)
+        globalVar[str(message.chat.id)]['move'] = 0
 
     deleting(message.chat.id)
     try:
@@ -276,6 +302,7 @@ def error(message):
         globalVar[str(message.chat.id)]['topic'] = None
         globalVar[str(message.chat.id)]['error_messages'] = None
         globalVar[str(message.chat.id)]['message_id'] = str(message.message_id)
+        globalVar[str(message.chat.id)]['move'] = 0
 
     try:
         bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
@@ -326,6 +353,14 @@ def callback_query(call):
         elif call.data == 'my__appeals':
             a = bot.edit_message_text('Ваши жалобы:', cmcd, cmmi)
             my_appeals(cmmi,cmcd)
+
+        elif call.data == 'choose_appeal_back':
+            globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) - 1)
+            my_appeals(cmmi, cmcd)
+
+        elif call.data == 'choose_appeal_forward':
+            globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) + 1)
+            my_appeals(cmmi, cmcd)
 
         elif call.data == 'exit':
             exit(call.message.chat.id)
