@@ -106,37 +106,20 @@ def logging_in2(message, logs, id):
     globalVar[str(message.chat.id)]['to_delete'].append(id)
     globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     s = requests.Session()
-    payload = {"email": logs[0], "password": logs[1]}
-    send_to = 'signin'
+    payload = {"email": logs[0], "password": logs[1], "chat_id": str(message.chat.id)}
+    send_to = 'telegram/connect'
     r = s.post(f'{url}/{send_to}', json=payload)
     try:
-        if json.loads(r.text)['token']:
-            s = requests.Session()
-            payload = {"email": logs[0], "password": logs[1], "chat_id": str(message.chat.id)}
-            send_to = 'telegram/connect'
-            r = s.post(f'{url}/{send_to}', json=payload)
-            try:
-                if json.loads(r.text)['user']:
-                    bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-                    a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())  # editing = 4
-                    globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-            except Exception:
-                bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-                a = bot.send_message(message.chat.id, 'Ошибка! Ваш профиль уже привязан к телеграмму\nВыберите действие:',
-                                 reply_markup=menu())
-                globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-        else:
-            bot.edit_message_text('Введите пароль:', message.chat.id, id)
-            a = bot.send_message(message.chat.id, 'Ошибка! Введенные данные неверны\nВыберите действие:',
-                             reply_markup=menu())
-            # editing = 4
+        if json.loads(r.text)['user']:
+            bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+            a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())  # editing = 4
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
     except Exception:
-        bot.edit_message_text('Введите пароль:', message.chat.id, id)
-        a = bot.send_message(message.chat.id, 'К сожалению, такого пользователя нет в базе данных', reply_markup=back())
-        # editing = 4
-        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-
+            bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+            mes = json.loads(r.text)['message']
+            a = bot.send_message(message.chat.id, f'{mes}\nВыберите действие:',
+                                 reply_markup=menu())
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
     deleting(message.chat.id)
 
 
