@@ -118,10 +118,17 @@ def logging_in2(message, logs, id):
     send_to = 'telegram/connect'
     r = s.post(f'{url}/{send_to}', json=payload)
     try:
-        if json.loads(r.text)['user']:
+        if json.loads(r.text)['user'] and json.loads(r.text)['user']['emailVerified']:
             bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
             a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())  # editing = 4
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        else:
+            bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+            a = bot.send_message(message.chat.id,
+                                 'Вы не подтвердили почту! Перейдите по ссылке в письме и повторите авторизацию',
+                                 reply_markup=menu())  # editing = 4
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            exit(message.chat.id)
     except Exception:
             bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
             mes = json.loads(r.text)['message']
@@ -207,18 +214,18 @@ def my_appeals(bot_message_id, id):
         appeals = json.loads(r.text)['appeals']
         flag = True
         appeals = appeals[::-1]
-        if int(globalVar[str(id)]['move']) == len(appeals):
+        if int(globalVar[str(id)]['move']) >= len(appeals):
             globalVar[str(id)]['move'] = str(len(appeals))
-            bot.edit_message_text('У вас нет более старых жалоб',  id, bot_message_id,
+            bot.edit_message_text('У вас нет более старых жалоб', id, bot_message_id,
                                  reply_markup=choose_appeal())
-        elif int(globalVar[str(id)]['move']) == -1:
-            globalVar[str(id)]['move'] = str(0)
+        elif int(globalVar[str(id)]['move']) <= -1:
+            globalVar[str(id)]['move'] = str(-1)
             bot.edit_message_text('У вас нет более новых жалоб', id, bot_message_id,
                                  reply_markup=choose_appeal())
         elif json.loads(r.text)['appeals'] and len(appeals)!=0:
             appeal_id = int(globalVar[str(id)]['move'])
             t = appeals[appeal_id]
-            date = str(t['date'])[:10].split('-')
+            date = str(date_update(datetime1=str(t['date']))).split('-')
             status = str(t['status'])
             text = str(t['text'])
             if status == 'waiting':
@@ -230,10 +237,10 @@ def my_appeals(bot_message_id, id):
             elif status == 'rejected':
                 status = 'Отклонено'
             if len(appeals)-1 == 0:
-                bot.edit_message_text(f'Дата: *{date[2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                bot.edit_message_text(f'Дата: *{str(date[2])[:3]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
                                           bot_message_id, reply_markup=back_to_menu_appeals(), parse_mode="Markdown")
             else:
-                bot.edit_message_text(f'Дата: *{date[2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                bot.edit_message_text(f'Дата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
                                           bot_message_id, reply_markup=choose_appeal(), parse_mode="Markdown")
             globalVar[str(id)]['to_delete'].append(b.message_id)
         else:
@@ -246,6 +253,15 @@ def my_appeals(bot_message_id, id):
             globalVar[str(id)]['to_delete'].append(bot_message_id)
             a = bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_appeals())
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+
+
+def date_update(datetime1):
+    year = int(datetime1[:4])
+    month = int(datetime1[5:7])
+    day = int(datetime1[8:10])
+    hour = int(datetime1[11:13])
+    all = datetime.datetime(year=year, month=month, day=day, hour=hour) + datetime.timedelta(hours=3)
+    return all
 
 
 @bot.message_handler(commands=['start'])
@@ -261,8 +277,9 @@ def send_welcome(message):
         globalVar[str(message.chat.id)]['topic'] = None
         globalVar[str(message.chat.id)]['error_messages'] = list()
         globalVar[str(message.chat.id)]['message_id'] = str(message.message_id)
-        globalVar[str(message.chat.id)]['move'] = 0
+        globalVar[str(message.chat.id)]['move'] = '0'
 
+    globalVar[str(message.chat.id)]['move'] = '0'
     deleting(message.chat.id)
     try:
         bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
@@ -302,8 +319,7 @@ def error(message):
         globalVar[str(message.chat.id)]['topic'] = None
         globalVar[str(message.chat.id)]['error_messages'] = None
         globalVar[str(message.chat.id)]['message_id'] = str(message.message_id)
-        globalVar[str(message.chat.id)]['move'] = 0
-
+        globalVar[str(message.chat.id)]['move'] = '0'
     try:
         bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
     except Exception:
@@ -380,6 +396,7 @@ def callback_query(call):
             bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu_authorized())
 
         elif call.data == 'back_to_menu_appeals':
+            globalVar[str(cmcd)]['move'] = str(0)
             bot.clear_step_handler_by_chat_id(cmcd)
             deleting(cmcd)
             bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu_appeals())
