@@ -9,7 +9,6 @@ from validate_email import validate_email
 
 geolocator = Nominatim(user_agent="tg_bot")
 
-x = (requests.post(url, json=myobj)).json()
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
