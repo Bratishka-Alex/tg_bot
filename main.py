@@ -224,10 +224,10 @@ def my_appeals(bot_message_id, id):
             elif status == 'rejected':
                 status = 'Отклонено'
             if len(appeals)-1 == 0:
-                bot.edit_message_text(f'Дата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
                                           bot_message_id, reply_markup=back_to_menu_appeals(), parse_mode="Markdown")
             else:
-                bot.edit_message_text(f'Дата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
                                           bot_message_id, reply_markup=choose_appeal(), parse_mode="Markdown")
             globalVar[str(id)]['to_delete'].append(b.message_id)
         else:
