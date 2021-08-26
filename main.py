@@ -12,8 +12,8 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants Проф1
-#token = '1916725688:AAH7DNy9VshGWp1FE25K38Dv9kcuDRnj6_E'  # bot constants Проф2
+#token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants Проф1
+token = '1916725688:AAH7DNy9VshGWp1FE25K38Dv9kcuDRnj6_E'  # bot constants Проф2
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -190,17 +190,31 @@ def back():
     return markup
 
 
+def upload_my_appeal():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    send_appeal = InlineKeyboardButton('Да', callback_data='send_appeal')
+    back_to_menu_appeals = InlineKeyboardButton('Назад', callback_data='back_to_menu_appeals')
+    markup.add(send_appeal, back_to_menu_appeals)
+    return markup
+
+
 def create_appeal(message, bot_message_id):
     bot.edit_message_text('Опишите вашу проблему:', message.chat.id, bot_message_id)
-    s = requests.Session()
-    id = message.chat.id
-    payload = {"text": message.text, "chat_id": str(id)}
-    send_to = 'appeals/create'
-    s.post(f'{url}/{send_to}', json=payload)
     globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
     globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-    a = bot.send_message(id, 'Ваша жалоба принята💀', reply_markup=back_to_menu_appeals())
+    globalVar[str(message.chat.id)]['appeal_text'] = message.text
+    a = bot.send_message(message.chat.id, 'Отправить жалобу?', reply_markup=upload_my_appeal())
     globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+
+def send_appeal(id, bot_message_id):
+    s = requests.Session()
+    payload = {"text": globalVar[str(id)]['appeal_text'], "chat_id": str(id)}
+    send_to = 'appeals/create'
+    s.post(f'{url}/{send_to}', json=payload)
+    bot.edit_message_text('Ваша жалоба принята💀', id, bot_message_id, reply_markup=back_to_menu_appeals())
+    globalVar[str(cmcd)]['appeal_text'] = ''
 
 
 def my_appeals(bot_message_id, id):
@@ -213,18 +227,25 @@ def my_appeals(bot_message_id, id):
     if len(appeals)!=0:
         if int(globalVar[str(id)]['move']) >= len(appeals):
             globalVar[str(id)]['move'] = str(len(appeals))
-            bot.edit_message_text('У вас нет более старых жалоб', id, bot_message_id,
-                                reply_markup=choose_appeal())
+            try:
+                bot.edit_message_text('У вас нет более старых жалоб', id, bot_message_id,
+                                    reply_markup=choose_appeal())
+            except Exception:
+                None
         elif int(globalVar[str(id)]['move']) <= -1:
             globalVar[str(id)]['move'] = str(-1)
-            bot.edit_message_text('У вас нет более новых жалоб', id, bot_message_id,
+            try:
+                bot.edit_message_text('У вас нет более новых жалоб', id, bot_message_id,
                                 reply_markup=choose_appeal())
+            except Exception:
+                None
         elif json.loads(r.text)['appeals'] and len(appeals)!=0:
             appeal_id = int(globalVar[str(id)]['move'])
             t = appeals[appeal_id]
             date = str(date_update(datetime1=str(t['dateOfRequest']))).split('-')
             status = str(t['status'])
             text = str(t['text'])
+            rejectReason = ''
             if status == 'waiting':
                 status = 'Ожидание'
             elif status == 'in_work':
@@ -233,12 +254,16 @@ def my_appeals(bot_message_id, id):
                 status = "Выполнено"
             elif status == 'rejected':
                 status = 'Отклонено'
+                rejectReason = t['rejectReason']
+                rejectReason = f'\n\nПричина отклонения:\n*{rejectReason}*'
             try:
                 if len(appeals)-1 == 0:
-                        bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
-                                            bot_message_id, reply_markup=back_to_menu_appeals1(), parse_mode="Markdown")
+                    bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\n'
+                                          f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*', id,
+                                        bot_message_id, reply_markup=back_to_menu_appeals1(), parse_mode="Markdown")
                 else:
-                    bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                    bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\n'
+                                          f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*', id,
                                         bot_message_id, reply_markup=choose_appeal(), parse_mode="Markdown")
             except Exception:
                 None
@@ -274,6 +299,7 @@ def send_welcome(message):
         globalVar[str(message.chat.id)]['error_messages'] = list()
         globalVar[str(message.chat.id)]['message_id'] = str(message.message_id)
         globalVar[str(message.chat.id)]['move'] = '0'
+        globalVar[str(message.chat.id)]['appeal_text'] = ''
 
     globalVar[str(message.chat.id)]['move'] = '0'
     deleting(message.chat.id)
@@ -316,6 +342,7 @@ def error(message):
         globalVar[str(message.chat.id)]['error_messages'] = None
         globalVar[str(message.chat.id)]['message_id'] = str(message.message_id)
         globalVar[str(message.chat.id)]['move'] = '0'
+        globalVar[str(message.chat.id)]['appeal_text'] = ''
     try:
         bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
     except Exception:
@@ -362,6 +389,9 @@ def callback_query(call):
             a = bot.edit_message_text('Опишите вашу проблему:', cmcd, cmmi, reply_markup=back_to_menu_appeals())
             bot.register_next_step_handler(a, create_appeal, cmmi)
 
+        elif call.data == 'send_appeal':
+            send_appeal(cmcd,cmmi)
+
         elif call.data == 'my__appeals':
             a = bot.edit_message_text('Ваши жалобы:', cmcd, cmmi)
             my_appeals(cmmi,cmcd)
@@ -395,6 +425,7 @@ def callback_query(call):
             bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu_authorized())
 
         elif call.data == 'back_to_menu_appeals':
+            globalVar[str(cmcd)]['appeal_text'] = ''
             globalVar[str(cmcd)]['move'] = str(0)
             bot.clear_step_handler_by_chat_id(cmcd)
             deleting(cmcd)
