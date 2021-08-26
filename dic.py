@@ -2,7 +2,7 @@ import requests
 import json
 
 s = requests.Session()
-payload = {"email": "test3@mail.ru","password": "111","chat_id": "388856114"}
+payload = {"email": "alekssurikov2201@yandex.ru","password": "1111","chat_id": "388856114"}
 print(payload)
 url='http://renat-hamatov.ru'
 send_to = 'telegram/connect'

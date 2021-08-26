@@ -8,25 +8,12 @@ import requests
 from validate_email import validate_email
 
 geolocator = Nominatim(user_agent="tg_bot")
-url = 'https://tools.emailmatrix.ru/event-generator/'
-myobj = {
-    "apikey": "AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4",
-    "start": "2021-09-28 00:00",
-    "end": "2021-09-28 01:00",
-    "timezone": "Europe/Moscow",
-    "title": "Событие",
-    "url": "http://emailmatrix.ru",
-    "location": "г. Рязань, 390010, ул. Октябрьская, д. 65, H264",
-    "description": "Описание события",
-    "remind": "2",
-    "remind_unit": "h"
-}
 
 x = (requests.post(url, json=myobj)).json()
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-token = '1916725688:AAH7DNy9VshGWp1FE25K38Dv9kcuDRnj6_E'  # bot constants
+token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -237,7 +224,7 @@ def my_appeals(bot_message_id, id):
             elif status == 'rejected':
                 status = 'Отклонено'
             if len(appeals)-1 == 0:
-                bot.edit_message_text(f'Дата: *{str(date[2])[:3]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
+                bot.edit_message_text(f'Дата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,
                                           bot_message_id, reply_markup=back_to_menu_appeals(), parse_mode="Markdown")
             else:
                 bot.edit_message_text(f'Дата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\nСтатус: *{status}*\n*{text}*', id,

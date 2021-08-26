@@ -1,8 +1,4 @@
-d = {}
-d['lol'] = 'lel'
-d.setdefault('lel', []).append(2)
-d.setdefault(1, []).append(3)
-d.setdefault(5, []).append(6)
-k = dict()
-k['dla'] = d
-print(k)
+import datetime
+
+clock_in_half_hour = datetime.datetime(year = 2021, month=8, day=25, hour=19, minute=22, second=51) + datetime.timedelta(minutes=30)
+print(clock_in_half_hour)
