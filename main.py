@@ -114,7 +114,7 @@ def logging_in2(message, logs, id):
     globalVar[str(message.chat.id)]['to_delete'].append(id)
     globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     s = requests.Session()
-    payload = {"email": logs[0], "password": logs[1], "chat_id": str(message.chat.id)}
+    payload = {"email": logs[0].lower(), "password": logs[1], "chat_id": str(message.chat.id)}
     send_to = 'telegram/connect'
     r = s.post(f'{url}/{send_to}', json=payload)
     try:
@@ -197,7 +197,7 @@ def create_appeal(message, bot_message_id):
     id = message.chat.id
     payload = {"text": message.text,"chat_id": str(id)}
     send_to = 'appeals/create'
-    s.post(f'{url}/{send_to}', json=payload)
+    r = s.post(f'{url}/{send_to}', json=payload)
     globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
     globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     a = bot.send_message(id, 'Ваша жалоба принята💀', reply_markup=back_to_menu_appeals())
