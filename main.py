@@ -112,7 +112,8 @@ def logging_in2(message, logs, id):
         else:
             bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
             a = bot.send_message(message.chat.id,
-                                 'Вы не подтвердили почту! Перейдите по ссылке в письме и повторите авторизацию',
+                                 'Вы не подтвердили почту! На ваш электронный адрес отправлено новое письмо'
+                                 ' для подтверждения. Перейдите по ссылке в письме и повторите авторизацию.',
                                  reply_markup=menu())  # editing = 4
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
             exit(message.chat.id)
