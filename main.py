@@ -12,7 +12,8 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants
+token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants Проф1
+#token = '1916725688:AAH7DNy9VshGWp1FE25K38Dv9kcuDRnj6_E'  # bot constants Проф2
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -211,7 +212,7 @@ def my_appeals(bot_message_id, id):
         elif json.loads(r.text)['appeals'] and len(appeals)!=0:
             appeal_id = int(globalVar[str(id)]['move'])
             t = appeals[appeal_id]
-            date = str(date_update(datetime1=str(t['date']))).split('-')
+            date = str(date_update(datetime1=str(t['dateOfRequest']))).split('-')
             status = str(t['status'])
             text = str(t['text'])
             if status == 'waiting':
