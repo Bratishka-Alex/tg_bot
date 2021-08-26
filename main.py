@@ -12,8 +12,8 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-#token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants Проф1
-token = '1916725688:AAH7DNy9VshGWp1FE25K38Dv9kcuDRnj6_E'  # bot constants Проф2
+token = '1917275192:AAFfAT_ggb_QS8Shwp6G2aNbuid69pfSNQ4'  # bot constants Проф1
+#token = '1916725688:AAH7DNy9VshGWp1FE25K38Dv9kcuDRnj6_E'  # bot constants Проф2
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -65,6 +65,7 @@ def menu_appeals():
     markup.add(create__appeal, my__appeals, back_to_menu_authorized)
     return markup
 
+
 def choose_appeal():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2  # Ширина поля кнопок
@@ -110,7 +111,7 @@ def logging_in2(message, logs, id):
     try:
         if json.loads(r.text)['user'] and json.loads(r.text)['user']['emailVerified']:
             bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-            a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())  # editing = 4
+            a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
         else:
             bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
@@ -163,6 +164,7 @@ def back_to_menu_appeals1():
     markup.add(reload_my_appeal, back_to_menu_appeal)
     return markup
 
+
 def back_to_menu_appeals():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
@@ -170,17 +172,20 @@ def back_to_menu_appeals():
     markup.add(back_to_menu_appeal)
     return markup
 
+
 def back3():
     markup = InlineKeyboardMarkup()
     back_to_menu = InlineKeyboardButton('Назад', callback_data='back_to_menu')
     markup.add(back_to_menu)
     return markup
 
+
 def back2():
     markup = InlineKeyboardMarkup()
     back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
     markup.add(back_to_menu_authorized)
     return markup
+
 
 def back():
     markup = InlineKeyboardMarkup()
@@ -224,7 +229,7 @@ def my_appeals(bot_message_id, id):
     r = s.get(f'{url}/{send_to}', json=payload)
     appeals = json.loads(r.text)['appeals']
     appeals = appeals[::-1]
-    if len(appeals)!=0:
+    if len(appeals) != 0:
         if int(globalVar[str(id)]['move']) >= len(appeals):
             globalVar[str(id)]['move'] = str(len(appeals))
             try:
@@ -239,7 +244,7 @@ def my_appeals(bot_message_id, id):
                                 reply_markup=choose_appeal())
             except Exception:
                 None
-        elif json.loads(r.text)['appeals'] and len(appeals)!=0:
+        elif json.loads(r.text)['appeals'] and len(appeals) != 0:
             appeal_id = int(globalVar[str(id)]['move'])
             t = appeals[appeal_id]
             date = str(date_update(datetime1=str(t['dateOfRequest']))).split('-')
@@ -258,11 +263,13 @@ def my_appeals(bot_message_id, id):
                 rejectReason = f'\n\nПричина отклонения:\n*{rejectReason}*'
             try:
                 if len(appeals)-1 == 0:
-                    bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\n'
+                    bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\n'
+                                          f'Дата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\n'
                                           f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*', id,
                                         bot_message_id, reply_markup=back_to_menu_appeals1(), parse_mode="Markdown")
                 else:
-                    bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\nДата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\n'
+                    bot.edit_message_text(f'{appeal_id+1}/{len(appeals)}\n'
+                                          f'Дата: *{str(date[2])[:2]}.{date[1]}.{date[0]}*\n'
                                           f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*', id,
                                         bot_message_id, reply_markup=choose_appeal(), parse_mode="Markdown")
             except Exception:
@@ -289,7 +296,6 @@ def date_update(datetime1):
 def send_welcome(message):
     global globalVar
     print(globalVar)
-
 
     if str(message.chat.id) not in globalVar:
 
@@ -377,7 +383,7 @@ def callback_query(call):
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
         elif call.data == 'appeals':
-            bot.delete_message(cmcd,cmmi)
+            bot.delete_message(cmcd, cmmi)
             a = bot.send_message(cmcd, '*Жалобы*', parse_mode="Markdown")
             b = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_appeals())
             deleting(cmcd)
@@ -390,11 +396,11 @@ def callback_query(call):
             bot.register_next_step_handler(a, create_appeal, cmmi)
 
         elif call.data == 'send_appeal':
-            send_appeal(cmcd,cmmi)
+            send_appeal(cmcd, cmmi)
 
         elif call.data == 'my__appeals':
-            a = bot.edit_message_text('Ваши жалобы:', cmcd, cmmi)
-            my_appeals(cmmi,cmcd)
+            bot.edit_message_text('Ваши жалобы:', cmcd, cmmi)
+            my_appeals(cmmi, cmcd)
 
         elif call.data == 'reload_my_appeal':
             my_appeals(cmmi, cmcd)
