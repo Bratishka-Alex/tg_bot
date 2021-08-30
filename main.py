@@ -13,8 +13,8 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-#token = '1917275192:AAFGtSKv2uv9lC3UAiD3Vy53vbrg_iIOb0c'  # bot constants Проф1
-token = '1916725688:AAF1T0x-C2_fnsawkmlTbYTAA-jkUWbOEKY'  # bot constants Проф2
+token = '1917275192:AAFGtSKv2uv9lC3UAiD3Vy53vbrg_iIOb0c'  # bot constants Проф1
+#token = '1916725688:AAF1T0x-C2_fnsawkmlTbYTAA-jkUWbOEKY'  # bot constants Проф2
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -233,6 +233,15 @@ def back():
     return markup
 
 
+def upload_my_appeal0():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    send_text = InlineKeyboardButton('Да', callback_data='send_text')
+    back_to_menu_appeals = InlineKeyboardButton('Назад в меню', callback_data='back_to_menu_appeals')
+    markup.add(send_text, back_to_menu_appeals)
+    return markup
+
+
 def upload_my_appeal():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -251,45 +260,100 @@ def upload_my_appeal1():
     return markup
 
 def create_appeal(message, bot_message_id):
-    if message.text.lower() == '/start':
-        error_func(message.chat.id, message.message_id)
-    else:
+    if message.text != None:
+        if message.text.lower() == '/start':
+            error_func(message.chat.id, message.message_id)
+        else:
+            bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            globalVar[str(message.chat.id)]['appeal_text'] = message.text
+            a = bot.send_message(message.chat.id, 'Хотите отправить фотографию по проблеме?',
+                                reply_markup=upload_my_appeal())
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+    elif message.photo != None and message.caption == None:
         bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-        globalVar[str(message.chat.id)]['appeal_text'] = message.text
-        a = bot.send_message(message.chat.id, 'Хотите отправить фотографию по проблеме?',
-                            reply_markup=upload_my_appeal())
+
+        file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        src = 'uploads/' + file_info.file_path
+        with open(src, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        globalVar[str(message.chat.id)]['photo_url'] = src
+        text = 'Вы прислали фото.\nТеперь опишите возникшую проблему:'
+        a = bot.send_message(message.chat.id, text, reply_markup=back_to_menu_appeals())
+        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        bot.register_next_step_handler(a, send_text, a.message_id, text)
+
+    elif message.photo != None and message.caption != None:
+        bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
+        globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+        globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+        globalVar[str(message.chat.id)]['appeal_text'] = message.caption
+
+        file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        src = 'uploads/' + file_info.file_path
+        with open(src, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        globalVar[str(message.chat.id)]['photo_url'] = src
+
+        a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
+        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+def send_text(message,bot_id_message, text):
+    if message.text != None:
+        if message.text.lower() == '/start':
+            error_func(message.chat.id, message.message_id)
+        else:
+            bot.edit_message_text(text, message.chat.id, bot_id_message)
+            globalVar[str(message.chat.id)]['appeal_text'] = message.text
+            a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+    else:
+        bot.edit_message_text(text, message.chat.id, bot_id_message)
+        a = bot.send_message(message.chat.id, 'Вы отправили не текст! Хотите повторить ввод текста?',
+                             reply_markup=upload_my_appeal0())
+        globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
+        globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
 
 
 def send_photo(message, bot_id_message):
-    if message.text.lower() == '/start':
-        error_func(message.chat.id, message.message_id)
-    else:
-        bot.edit_message_text('Пришлите фотографию возникшей проблемы:', message.chat.id, bot_id_message)
-        try:
-            file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
-            downloaded_file = bot.download_file(file_info.file_path)
+    bot.edit_message_text('Пришлите фотографию возникшей проблемы:', message.chat.id, bot_id_message)
+    try:
+        file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
 
-            src = 'uploads/' + file_info.file_path
-            with open(src, 'wb') as new_file:
-                new_file.write(downloaded_file)
-            globalVar[str(message.chat.id)]['photo_url'] = src
-            a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
-        except Exception:
-            a = bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
-                            reply_markup=upload_my_appeal())
-            globalVar[str(message.chat.id)]['photo_url'] = 'error'
+        src = 'uploads/' + file_info.file_path
+        with open(src, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        globalVar[str(message.chat.id)]['photo_url'] = src
+        a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+    except Exception:
+        if message.text.lower() == '/start':
+            error_func(message.chat.id, message.message_id)
+        else:
+            a = bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
+                            reply_markup=upload_my_appeal())
+            globalVar[str(message.chat.id)]['photo_url'] = 'error'
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
 
 
 def send_appeal(id, bot_message_id):
     s = requests.Session()
     payload = {"text": globalVar[str(id)]['appeal_text']}
-    send_to = f'appeals-from-tg/{str(id)}/create'
+    send_to = f'appeals-from-tg/{str(id)}/create-complaint'
     if globalVar[str(id)]['photo_url'] != '' and globalVar[str(id)]['photo_url'] != 'error':
         files = {'image': (globalVar[str(id)]['photo_url'],
                         open(globalVar[str(id)]['photo_url'], 'rb'))}
@@ -300,13 +364,24 @@ def send_appeal(id, bot_message_id):
     globalVar[str(id)]['appeal_text'] = ''
 
 
-def my_appeals(bot_message_id, id):
+def my_appeals(id):
     s = requests.Session()
     send_to = f'appeals-from-tg/{str(id)}/my'
     r = s.get(f'{url}/{send_to}')
     appeals = json.loads(r.text)['appeals']
     appeals = appeals[::-1]
     a = None
+
+    def filter_set(appeals):
+        def iterator_func(x):
+            if "complaint" == x.get("type"):
+                return True
+            else:
+                return False
+
+        return filter(iterator_func, appeals)
+
+    appeals = list(filter_set(appeals))
     if len(appeals) != 0:
         if int(globalVar[str(id)]['move']) >= len(appeals):
             globalVar[str(id)]['move'] = str(len(appeals))
@@ -496,6 +571,15 @@ def callback_query(call):
             a = bot.edit_message_text('Опишите возникшую проблему:', cmcd, cmmi, reply_markup=back_to_menu_appeals())
             bot.register_next_step_handler(a, create_appeal, cmmi)
 
+        elif call.data == 'send_text':
+            text = 'Опишите возникшую проблему:'
+            a = bot.edit_message_text(text, cmcd, cmmi, reply_markup=back_to_menu_appeals())
+            b = globalVar[str(cmcd)]['to_delete'].pop()
+            c = globalVar[str(cmcd)]['to_delete'].pop()
+            bot.delete_message(cmcd, b)
+            bot.delete_message(cmcd, c)
+            bot.register_next_step_handler(a, send_text, cmmi, text)
+
         elif call.data == 'send_photo':
             a = bot.edit_message_text('Пришлите фотографию возникшей проблемы:', cmcd, cmmi, reply_markup=back_to_menu_appeals2())
             if globalVar[str(cmcd)]['photo_url'] == 'error':
@@ -513,18 +597,18 @@ def callback_query(call):
 
         elif call.data == 'my__appeals':
             bot.edit_message_text('Ваши жалобы:', cmcd, cmmi)
-            my_appeals(cmmi, cmcd)
+            my_appeals(cmcd)
 
         elif call.data == 'reload_my_appeal':
-            my_appeals(cmmi, cmcd)
+            my_appeals(cmcd)
 
         elif call.data == 'choose_appeal_back':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) - 1)
-            my_appeals(cmmi, cmcd)
+            my_appeals(cmcd)
 
         elif call.data == 'choose_appeal_forward':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) + 1)
-            my_appeals(cmmi, cmcd)
+            my_appeals(cmcd)
 
         elif call.data == 'exit':
             exit(call.message.chat.id)
