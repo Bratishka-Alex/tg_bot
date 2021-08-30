@@ -84,54 +84,82 @@ def logging_in(message, id):
     global globalVar
     logs = list()
     logs.append(message.text)
-    if message.text.lower() == '/start':
-        error_func(message.chat.id, message.message_id)
+    if message.text != None:
+        if message.text.lower() == '/start':
+            error_func(message.chat.id, message.message_id)
+        else:
+            globalVar[str(message.chat.id)]['to_delete'].append(id)
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            print(globalVar)
+            if validate_email(logs[0]):
+                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+                a = bot.send_message(message.chat.id, 'Введите пароль:', reply_markup=back3())  # editing = 2
+                globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                bot.register_next_step_handler(a, logging_in2, logs, a.message_id)
+
+            else:
+                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+                d = bot.send_message(message.chat.id, 'Недействительный адрес электронной почты\nВыберите действие:',
+                                reply_markup=back())  # editing = 2
+                globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
     else:
         globalVar[str(message.chat.id)]['to_delete'].append(id)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-        print(globalVar)
-        if validate_email(logs[0]):
-            bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
-            a = bot.send_message(message.chat.id, 'Введите пароль:', reply_markup=back3())  # editing = 2
-            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-            bot.register_next_step_handler(a, logging_in2, logs, a.message_id)
-
-        else:
-            bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
-            d = bot.send_message(message.chat.id, 'Недействительный адрес электронной почты\nВыберите действие:',
-                            reply_markup=back())  # editing = 2
-            globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
-
+        bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+        d = bot.send_message(message.chat.id, 'Пожалуйста, укажите действительный адрес электронной почты без вложений'
+                                              ' в чат\nВыберите действие:',
+                             reply_markup=back())  # editing = 2
+        globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
 
 def logging_in2(message, logs, id):
     global globalVar
     logs.append(message.text)
-    globalVar[str(message.chat.id)]['to_delete'].append(id)
-    globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-    s = requests.Session()
-    payload = {"email": logs[0].lower(), "password": logs[1]}
-    send_to = f'telegram/connect/{str(message.chat.id)}'
-    r = s.post(f'{url}/{send_to}', json=payload)
-    try:
-        if json.loads(r.text)['user'] and json.loads(r.text)['user']['emailVerified']:
-            bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-            a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())
-            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+    if message.text != None:
+        if message.text.lower() == '/start':
+            error_func(message.chat.id, message.message_id)
         else:
-            bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-            a = bot.send_message(message.chat.id,
-                                 'Вы не подтвердили почту! На ваш электронный адрес отправлено новое письмо'
-                                 ' для подтверждения. Перейдите по ссылке в письме и повторите авторизацию.',
-                                 reply_markup=menu())  # editing = 4
-            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-            exit(message.chat.id)
-    except Exception:
-            bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-            mes = json.loads(r.text)['message']
-            a = bot.send_message(message.chat.id, f'{mes}\nВыберите действие:',
-                                 reply_markup=menu())
-            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-    deleting(message.chat.id)
+            globalVar[str(message.chat.id)]['to_delete'].append(id)
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            if len(message.text) > 7:
+                s = requests.Session()
+                payload = {"email": logs[0].lower(), "password": logs[1]}
+                send_to = f'telegram/connect/{str(message.chat.id)}'
+                r = s.post(f'{url}/{send_to}', json=payload)
+                try:
+                    if json.loads(r.text)['user'] and json.loads(r.text)['user']['emailVerified']:
+                        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                        a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())
+                        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                    else:
+                        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                        a = bot.send_message(message.chat.id,
+                                            'Вы не подтвердили почту! На ваш электронный адрес отправлено новое письмо'
+                                            ' для подтверждения. Перейдите по ссылке в письме и повторите авторизацию.',
+                                            reply_markup=menu())  # editing = 4
+                        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                        exit(message.chat.id)
+                except Exception:
+                        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                        mes = json.loads(r.text)['message']
+                        a = bot.send_message(message.chat.id, f'{mes}\nВыберите действие:',
+                                            reply_markup=menu())
+                        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                deleting(message.chat.id)
+            else:
+                bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                d = bot.send_message(message.chat.id, 'Вы отправили слишком короткий пароль.\nМинимальная длина пароля'
+                                                      ' - 8\nВыберите действие:',
+                                     reply_markup=back())  # editing = 2
+                globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
+    else:
+        globalVar[str(message.chat.id)]['to_delete'].append(id)
+        globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+        d = bot.send_message(message.chat.id, 'Пожалуйста, укажите действительный пароль без вложений'
+                                              ' в чат\nВыберите действие:',
+                             reply_markup=back())  # editing = 2
+        globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
 
 
 def deleting(chat_id):
@@ -429,18 +457,6 @@ def send_welcome(message):
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
 def error(message):
-   """
-   file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-
-    src = 'uploads/' + file_info.file_path
-    with open(src, 'wb') as new_file:
-        new_file.write(downloaded_file)
-        new_file.close()
-    with open('uploads/photos/text.txt','w') as f:
-        f.write(str(message.caption))
-    Тщту
-    """
     error_func(message.chat.id, message.message_id)
 
 
