@@ -41,8 +41,8 @@ bot.set_update_listener(listener)
 def menu():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
-    log_in = InlineKeyboardButton("Войти в систему", callback_data="log_in")
-    registration = InlineKeyboardButton("Зарегистрироваться", callback_data="registration")
+    log_in = InlineKeyboardButton("Войти в систему 🔐", callback_data="log_in")
+    registration = InlineKeyboardButton("Зарегистрироваться 📝", callback_data="registration")
     markup.add(log_in, registration)
     return markup
 
@@ -50,18 +50,26 @@ def menu():
 def menu_authorized():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
-    appeals = InlineKeyboardButton("Жалобы", callback_data="appeals")
-    meter = InlineKeyboardButton("Счётчики", callback_data="meter")
-    exit = InlineKeyboardButton("Выйти из аккаунта", callback_data="exit")
-    markup.add(appeals, meter, exit)
+    appeals = InlineKeyboardButton("Жалобы ☹", callback_data="appeals")
+    meter = InlineKeyboardButton("Счётчики 👨‍🔧", callback_data="meter")
+    statements = InlineKeyboardButton("Справки 📄", callback_data="statements")
+    exit = InlineKeyboardButton("Выйти из аккаунта 🚪", callback_data="exit")
+    markup.add(appeals, meter, statements, exit)
     return markup
 
+def exit_confirm():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    exit_confirmed = InlineKeyboardButton("Да", callback_data="exit_confirmed")
+    back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
+    markup.add(exit_confirmed, back_to_menu_authorized)
+    return markup
 
 def menu_appeals():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
-    create__appeal = InlineKeyboardButton("Пожаловаться", callback_data="create__appeal")
-    my__appeals = InlineKeyboardButton("Мои жалобы", callback_data="my__appeals")
+    create__appeal = InlineKeyboardButton("Пожаловаться 😣", callback_data="create__appeal")
+    my__appeals = InlineKeyboardButton("Мои жалобы 📬", callback_data="my__appeals")
     back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
     markup.add(create__appeal, my__appeals, back_to_menu_authorized)
     return markup
@@ -70,7 +78,7 @@ def menu_appeals():
 def menu_meter():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
-    update_meter = InlineKeyboardButton("Обновить показания", callback_data="update_meter")
+    update_meter = InlineKeyboardButton("Обновить показания 🔄", callback_data="update_meter")
     back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
     markup.add(update_meter, back_to_menu_authorized)
     return markup
@@ -79,7 +87,7 @@ def menu_meter():
 def send_meter():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
-    send_meter = InlineKeyboardButton("Да", callback_data="send_meter")
+    send_meter = InlineKeyboardButton("Да ✅", callback_data="send_meter")
     back_to_menu_choose_meter = InlineKeyboardButton('Назад', callback_data='back_to_menu_choose_meter')
     markup.add(send_meter, back_to_menu_choose_meter)
     return markup
@@ -90,12 +98,39 @@ def choose_appeal():
     markup.row_width = 2  # Ширина поля кнопок
     choose_appeal_back = InlineKeyboardButton("<--", callback_data='choose_appeal_back')
     choose_appeal_forward = InlineKeyboardButton("-->", callback_data="choose_appeal_forward")
-    reload_my_appeal = InlineKeyboardButton('Обновить', callback_data='reload_my_appeal')
+    reload_my_appeal = InlineKeyboardButton('Обновить 🔄', callback_data='reload_my_appeal')
     back_to_menu_appeal = InlineKeyboardButton('Назад', callback_data='back_to_menu_appeals')
     markup.add(choose_appeal_back, choose_appeal_forward)
     markup.row_width = 1  # Ширина поля кнопок
     markup.add(reload_my_appeal, back_to_menu_appeal)
     return markup
+
+def my_statements(statement_id, flag):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    button = InlineKeyboardButton(text='Заказать справку 📨', callback_data='order_' + str(statement_id))
+    markup.add(button)
+    if flag:
+        back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
+        markup.add(back_to_menu_authorized)
+    return markup
+
+def order_statement(value):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    send_statement = InlineKeyboardButton('Да ✅', callback_data='send_statement_' + value)
+    back_to_choose_statement = InlineKeyboardButton('Нет', callback_data='statements')
+    markup.add(send_statement, back_to_choose_statement)
+    return markup
+
+
+def back_to_choose_statement():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    back_to_choose_statement = InlineKeyboardButton('Назад', callback_data='statements')
+    markup.add(back_to_choose_statement)
+    return markup
+
 
 
 def logging_in(message, id):
@@ -217,7 +252,7 @@ def back_to_menu_appeals1():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
     back_to_menu_appeal = InlineKeyboardButton('Назад', callback_data='back_to_menu_appeals')
-    reload_my_appeal = InlineKeyboardButton('Обновить', callback_data='reload_my_appeal')
+    reload_my_appeal = InlineKeyboardButton('Обновить 🔄', callback_data='reload_my_appeal')
     markup.add(reload_my_appeal, back_to_menu_appeal)
     return markup
 
@@ -240,7 +275,7 @@ def back_to_menu_choose_meter1():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
     back_to_menu_choose_meter = InlineKeyboardButton('Назад', callback_data='back_to_menu_choose_meter')
-    update_meter = InlineKeyboardButton("Повторить ввод", callback_data="update_meter")
+    update_meter = InlineKeyboardButton("Повторить ввод 🔁", callback_data="update_meter")
     markup.add(update_meter, back_to_menu_choose_meter)
     return markup
 
@@ -261,7 +296,7 @@ def back2():
 
 def back():
     markup = InlineKeyboardMarkup()
-    log_in = InlineKeyboardButton('Повторить ввод', callback_data='log_in')
+    log_in = InlineKeyboardButton('Повторить ввод 🔁', callback_data='log_in')
     back_to_menu = InlineKeyboardButton('Назад', callback_data='back_to_menu')
     markup.add(back_to_menu, log_in)
     return markup
@@ -270,7 +305,7 @@ def back():
 def upload_my_appeal0():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    send_text = InlineKeyboardButton('Да', callback_data='send_text')
+    send_text = InlineKeyboardButton('Да ✅', callback_data='send_text')
     back_to_menu_appeals = InlineKeyboardButton('Назад в меню', callback_data='back_to_menu_appeals')
     markup.add(send_text, back_to_menu_appeals)
     return markup
@@ -281,14 +316,14 @@ def upload_my_appeal():
     markup.row_width = 1
     send_appeal = InlineKeyboardButton('Отправить жалобу без фото', callback_data='send_appeal')
     back_to_menu_appeals = InlineKeyboardButton('Назад в меню', callback_data='back_to_menu_appeals')
-    send_photo = InlineKeyboardButton('Да', callback_data='send_photo')
+    send_photo = InlineKeyboardButton('Да 📸', callback_data='send_photo')
     markup.add(send_photo, send_appeal, back_to_menu_appeals)
     return markup
 
 def upload_my_appeal1():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    send_appeal = InlineKeyboardButton('Да', callback_data='send_appeal')
+    send_appeal = InlineKeyboardButton('Да ✅', callback_data='send_appeal')
     back_to_menu_appeals = InlineKeyboardButton('Назад в меню', callback_data='back_to_menu_appeals')
     markup.add(send_appeal, back_to_menu_appeals)
     return markup
@@ -825,11 +860,70 @@ def callback_query(call):
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
             bot.register_next_step_handler(a, hot_water_update, a.message_id, img)
 
-
         elif call.data == 'send_meter':
             send_meter1(cmcd)
 
+        elif call.data == 'statements':
+            bot.delete_message(cmcd, cmmi)
+            deleting(cmcd)
+            if globalVar[str(cmcd)]['topic'] == None:
+                a = bot.send_message(cmcd, '*Справки*', parse_mode="Markdown")
+                globalVar[str(cmcd)]['topic'] = str(a.message_id)
+            s = requests.Session()
+            send_to = f'houses-from-tg/{cmcd}/statements'
+            r = s.get(f'{url}/{send_to}')
+            statements = json.loads(r.text)['statements']
+            if len(statements) != 0:
+                a = bot.send_message(cmcd, 'Вы можете заказать перечисленные ниже справки.\n'
+                                 'В течение установленного срока документы доставят в ваш почтовый ящик:')
+                globalVar[str(cmcd)]['to_delete'].append(a.message_id)
+                for statement_id in range(len(statements)):
+                    if statement_id != len(statements) - 1:
+                        a = bot.send_message(cmcd, f'{statement_id+1}. {statements[statement_id]["name"]}',
+                                         reply_markup=my_statements(statement_id, False))
+                        globalVar[str(cmcd)]['to_delete'].append(a.message_id)
+                    else:
+                        a = bot.send_message(cmcd, f'{statement_id + 1}. {statements[statement_id]["name"]}',
+                                             reply_markup=my_statements(statement_id, True))
+            else:
+                a = bot.send_message(cmcd, 'К сожалению, вы не можете заказать справки в данный момент',
+                                     reply_markup=back2())
+            globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+
+        elif call.data[:6] == 'order_':
+            statement_id = int(call.data[6:])
+            print(globalVar)
+            a = globalVar[str(cmcd)]['to_delete'].pop(0)
+            if cmmi in globalVar[str(cmcd)]['to_delete']:
+                globalVar[str(cmcd)]['to_delete'].remove(cmmi)
+                bot.delete_message(cmcd, int(globalVar[str(cmcd)]['message_id']))
+                globalVar[str(cmcd)]['message_id'] = str(cmmi)
+            deleting(cmcd)
+            globalVar[str(cmcd)]['to_delete'].append(a)
+            globalVar[str(cmcd)]['to_delete'].append(int(globalVar[str(cmcd)]['message_id']))
+            s = requests.Session()
+            send_to = f'houses-from-tg/{cmcd}/statements'
+            r = s.get(f'{url}/{send_to}')
+            statements = json.loads(r.text)['statements']
+            statement = statements[statement_id]['name']
+            value = statements[statement_id]['value']
+            bot.edit_message_text(f'{statement_id+1}. {statement}', cmcd, cmmi)
+            a = bot.send_message(cmcd, 'Вы хотите заказать эту справку?', reply_markup=order_statement(value))
+            globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+
+        elif call.data[:15] == 'send_statement_':
+            s = requests.Session()
+            payload = {'value': str(call.data[15:])}
+            send_to = f'appeals-from-tg/{cmcd}/order-statement'
+            r = s.post(f'{url}/{send_to}', json=payload)
+            print(r.text, payload)
+            bot.edit_message_text('Справка успешно заказана!', cmcd, cmmi, reply_markup=back_to_choose_statement())
+
+
         elif call.data == 'exit':
+            bot.edit_message_text('Вы точно хотите выйти из аккаунта❓', cmcd, cmmi, reply_markup=exit_confirm())
+
+        elif call.data == 'exit_confirmed':
             exit(call.message.chat.id)
             deleting(cmcd)
             bot.edit_message_text('Вы вышли из аккаунта❗', cmcd, cmmi, reply_markup=menu())
@@ -840,11 +934,17 @@ def callback_query(call):
             bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu())
 
         elif call.data == 'back_to_menu_authorized':
-            bot.delete_message(cmcd, int(globalVar[str(cmcd)]['topic']))
+            try:
+                bot.delete_message(cmcd, int(globalVar[str(cmcd)]['topic']))
+            except Exception:
+                None
             globalVar[str(cmcd)]['topic'] = None
             bot.clear_step_handler_by_chat_id(cmcd)
             deleting(cmcd)
-            bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu_authorized())
+            bot.delete_message(cmcd, cmmi)
+            a = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_authorized())
+            globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+
 
         elif call.data == 'back_to_menu_appeals':
             if globalVar[str(cmcd)]['photo_url'] != '' and globalVar[str(cmcd)]['photo_url'] != 'error':

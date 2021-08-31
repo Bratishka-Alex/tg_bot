@@ -1,3 +1,2 @@
-import datetime
-today = str(datetime.date.today()).split('-')[1]
-print(today)
+a = 'send_statement_lol'
+print(a[:15])
