@@ -726,6 +726,18 @@ def callback_query(call):
                                               f'\nХолодная вода: *{coldWaterSupply}*'
                                               f'\nГорячая вода: *{hotWaterSupply}*',
                                          parse_mode='Markdown', reply_markup=menu_meter())
+                elif today < 20:
+                    b = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                                               f'\nДата обновления: *{date}*\n'
+                                               f'\nХолодная вода: *{coldWaterSupply}*'
+                                               f'\nГорячая вода: *{hotWaterSupply}*'
+                                               f'\n\nВы сможете обновить показания только,'
+                                               f' в период с 20 по 25 числа месяца',
+                                         parse_mode='Markdown')
+                    globalVar[str(cmcd)]['to_delete'].append(b.message_id)
+                    b = bot.send_message(cmcd, 'Если вы допустили ошибку при отправке данных,'
+                                               ' напишите нам в разделе *"Жалобы"*', parse_mode='Markdown',
+                                         reply_markup=back2())
                 else:
                     b = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
                                                f'\nДата обновления: *{date}*\n'
@@ -739,8 +751,19 @@ def callback_query(call):
                                                ' напишите нам в разделе *"Жалобы"*', parse_mode='Markdown',
                                          reply_markup=back2())
             else:
-                b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
-                                     reply_markup=menu_meter())
+                today = int(str(datetime.date.today()).split('-')[2])
+                if today > 19 and today < 26:
+                    b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
+                                     reply_markup=back2())
+                elif today < 20:
+                    b = bot.send_message(cmcd,
+                                         'У вас отстутсвуют данные счетчиков.'
+                                         ' Вы сможете их указать только в период с 20 по 25 числа месяца',
+                                         reply_markup=menu_meter())
+                else:
+                    b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков.'
+                                               ' Вы сможете их указать только в следующем месяце',
+                                         reply_markup=back2())
             globalVar[str(cmcd)]['topic'] = str(a.message_id)
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
             print(globalVar)
