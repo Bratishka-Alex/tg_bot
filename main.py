@@ -52,8 +52,9 @@ def menu_authorized():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
     appeals = InlineKeyboardButton("Жалобы", callback_data="appeals")
+    meter = InlineKeyboardButton("Счётчики", callback_data="meter")
     exit = InlineKeyboardButton("Выйти из аккаунта", callback_data="exit")
-    markup.add(appeals, exit)
+    markup.add(appeals, meter, exit)
     return markup
 
 
@@ -64,6 +65,24 @@ def menu_appeals():
     my__appeals = InlineKeyboardButton("Мои жалобы", callback_data="my__appeals")
     back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
     markup.add(create__appeal, my__appeals, back_to_menu_authorized)
+    return markup
+
+
+def menu_meter():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    update_meter = InlineKeyboardButton("Обновить показания", callback_data="update_meter")
+    back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
+    markup.add(update_meter, back_to_menu_authorized)
+    return markup
+
+
+def send_meter():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    send_meter = InlineKeyboardButton("Да", callback_data="send_meter")
+    back_to_menu_choose_meter = InlineKeyboardButton('Назад', callback_data='back_to_menu_choose_meter')
+    markup.add(send_meter, back_to_menu_choose_meter)
     return markup
 
 
@@ -92,13 +111,13 @@ def logging_in(message, id):
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             print(globalVar)
             if validate_email(logs[0]):
-                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)
                 a = bot.send_message(message.chat.id, 'Введите пароль:', reply_markup=back3())  # editing = 2
                 globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
                 bot.register_next_step_handler(a, logging_in2, logs, a.message_id)
 
             else:
-                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)
                 d = bot.send_message(message.chat.id, 'Недействительный адрес электронной почты\nВыберите действие:',
                                 reply_markup=back())  # editing = 2
                 globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
@@ -129,7 +148,8 @@ def logging_in2(message, logs, id):
                 try:
                     if json.loads(r.text)['user'] and json.loads(r.text)['user']['emailVerified']:
                         bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-                        a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅', reply_markup=menu_authorized())
+                        a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅',
+                                             reply_markup=menu_authorized())
                         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
                     else:
                         bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
@@ -208,6 +228,21 @@ def back_to_menu_appeals():
     markup.row_width = 1  # Ширина поля кнопок
     back_to_menu_appeal = InlineKeyboardButton('Назад', callback_data='back_to_menu_appeals')
     markup.add(back_to_menu_appeal)
+    return markup
+
+def back_to_menu_choose_meter():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    back_to_menu_choose_meter = InlineKeyboardButton('Назад', callback_data='back_to_menu_choose_meter')
+    markup.add(back_to_menu_choose_meter)
+    return markup
+
+def back_to_menu_choose_meter1():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    back_to_menu_choose_meter = InlineKeyboardButton('Назад', callback_data='back_to_menu_choose_meter')
+    update_meter = InlineKeyboardButton("Повторить ввод", callback_data="update_meter")
+    markup.add(update_meter, back_to_menu_choose_meter)
     return markup
 
 
@@ -364,6 +399,102 @@ def send_appeal(id, bot_message_id):
     globalVar[str(id)]['appeal_text'] = ''
 
 
+def hot_water_update(message, bot_message_id, img):
+    if message.text != None:
+        if message.text.lower() == '/start':
+            error_func(message.chat.id, message.message_id)
+        elif message.text.isdigit():
+            bot.edit_message_media(chat_id=message.chat.id, message_id=bot_message_id,
+                                   media=telebot.types.InputMediaPhoto(media=img,
+                                                                       caption='Введите показания счетчика *ГВС*:',
+                                                                       parse_mode="Markdown"))
+            logs = list()
+            logs.append(str(int(message.text)))
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+            a = bot.send_message(message.chat.id, 'Введите показания счетчика *ХВС*:', parse_mode="Markdown",
+                                 reply_markup=back_to_menu_choose_meter())
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            bot.register_next_step_handler(a,cold_water_update, a.message_id, logs)
+        else:
+            bot.edit_message_media(chat_id=message.chat.id, message_id=bot_message_id,
+                                   media=telebot.types.InputMediaPhoto(media=img,
+                                                                       caption='Введите показания счетчика *ГВС*:',
+                                                                       parse_mode="Markdown"))
+            a = bot.send_message(message.chat.id,
+                                 'Пожалуйста, укажите показания счётчиков целым числом',
+                                 reply_markup=back_to_menu_choose_meter1())
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+    else:
+        bot.edit_message_media(chat_id=message.chat.id, message_id=bot_message_id,
+                               media=telebot.types.InputMediaPhoto(media=img,
+                                                                   caption='Введите показания счетчика *ГВС*:',
+                                                                   parse_mode="Markdown"))
+        a = bot.send_message(message.chat.id,
+                             'Пожалуйста, укажите показания счётчиков текстовым сообщением без вложений',
+                         reply_markup=back_to_menu_choose_meter1())
+        globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+        globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+
+def cold_water_update(message, bot_message_id, logs):
+    if message.text != None:
+        if message.text.lower() == '/start':
+            error_func(message.chat.id, message.message_id)
+        elif message.text.isdigit():
+            bot.edit_message_text('Введите показания счетчика *ХВС*:', message.chat.id, bot_message_id,
+                                  parse_mode="Markdown")
+            logs.append(str(int(message.text)))
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+            a = bot.send_message(message.chat.id, 'Показания готовы. Отправить?', parse_mode="Markdown",
+                                 reply_markup=send_meter())
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['meter'] = logs
+        else:
+            bot.edit_message_text('Введите показания счетчика *ХВС*:', message.chat.id, bot_message_id,
+                                  parse_mode="Markdown")
+            a = bot.send_message(message.chat.id,
+                                 'Пожалуйста, укажите показания счётчиков целым числом',
+                                 reply_markup=back_to_menu_choose_meter1())
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+    else:
+        bot.edit_message_text('Введите показания счетчика *ХВС*', message.chat.id, bot_message_id,
+                              parse_mode="Markdown")
+        a = bot.send_message(message.chat.id,
+                             'Пожалуйста, укажите показания счётчиков текстовым сообщением без вложений',
+                         reply_markup=back_to_menu_choose_meter1())
+        globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+        globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+
+def send_meter1(id):
+    s = requests.Session()
+    payload = {"hotWater": globalVar[str(id)]['meter'][0],"coldWater": globalVar[str(id)]['meter'][1]}
+    url = 'http://renat-hamatov.ru'
+    send_to = f'telegram/user/meter-update/{id}'
+    print(f'{url}/{send_to}')
+    r = s.post(f'{url}/{send_to}', json=payload)
+    print(r.text)
+    try:
+        if json.loads(r.text)['user']:
+            bot.delete_message(id, globalVar[str(id)]['message_id'])
+            a = bot.send_message(id, 'Показания успешно обновлены!',
+                             reply_markup=back_to_menu_choose_meter())
+            globalVar[str(id)]['message_id'] = str(a.message_id)
+    except Exception:
+        text = json.loads(r.text)['message']
+        bot.delete_message(id, globalVar[str(id)]['message_id'])
+        a = bot.send_message(id, f'{text}', reply_markup=back_to_menu_choose_meter1())
+        globalVar[str(id)]['message_id'] = str(a.message_id)
+
 def my_appeals(id):
     s = requests.Session()
     send_to = f'appeals-from-tg/{str(id)}/my'
@@ -424,7 +555,8 @@ def my_appeals(id):
                         bot.delete_message(id, int(globalVar[str(id)]['message_id']))
                         a = bot.send_photo(photo=img, caption=f'{appeal_id + 1}/{len(appeals)}\n'
                                             f'Дата: *{date}*\n'
-                                            f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*', parse_mode="Markdown",
+                                            f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*',
+                                            parse_mode="Markdown",
                                             chat_id=id, reply_markup=back_to_menu_appeals1())
                     else:
                         bot.delete_message(id, int(globalVar[str(id)]['message_id']))
@@ -438,7 +570,8 @@ def my_appeals(id):
                         bot.delete_message(id, int(globalVar[str(id)]['message_id']))
                         a = bot.send_photo(photo=img, caption=f'{appeal_id + 1}/{len(appeals)}\n'
                                                         f'Дата: *{date}*\n'
-                                                        f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*',
+                                                        f'Статус: *{status}*{rejectReason}\n'
+                                                        f'\nТекст обращения:\n*{text}*',
                                                         parse_mode="Markdown",
                                                         chat_id=id, reply_markup=choose_appeal())
                     else:
@@ -460,6 +593,7 @@ def my_appeals(id):
     if a!= None:
         globalVar[str(id)]['message_id'] = str(a.message_id)
 
+
 def error_func(id,bot_message_id):
     if str(id) not in globalVar:
         globalVar[str(id)] = {}
@@ -470,6 +604,7 @@ def error_func(id,bot_message_id):
         globalVar[str(id)]['move'] = '0'
         globalVar[str(id)]['appeal_text'] = ''
         globalVar[str(id)]['photo_url'] = ''
+        globalVar[str(id)]['meter'] = list()
     try:
         bot.delete_message(id, int(globalVar[str(id)]['error_messages']))
     except Exception:
@@ -495,9 +630,11 @@ def send_welcome(message):
         globalVar[str(message.chat.id)]['move'] = '0'
         globalVar[str(message.chat.id)]['appeal_text'] = ''
         globalVar[str(message.chat.id)]['photo_url'] = ''
+        globalVar[str(message.chat.id)]['meter'] = list()
 
     globalVar[str(message.chat.id)]['move'] = '0'
     globalVar[str(message.chat.id)]['appeal_text'] = ''
+    globalVar[str(message.chat.id)]['meter'] = list()
     deleting(message.chat.id)
     if globalVar[str(message.chat.id)]['photo_url'] != '' and globalVar[str(message.chat.id)]['photo_url'] != 'error':
         os.remove(globalVar[str(message.chat.id)]['photo_url'])
@@ -567,21 +704,65 @@ def callback_query(call):
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
             print(globalVar)
 
+        elif call.data == 'meter':
+            bot.delete_message(cmcd, cmmi)
+            a = bot.send_message(cmcd, '*Счётчики*', parse_mode="Markdown")
+            s = requests.Session()
+            send_to = f'telegram/user/{cmcd}'
+            r = s.get(f'{url}/{send_to}')
+            print(json.loads(r.text)['user'])
+            deleting(cmcd)
+            if json.loads(r.text)['user']['meterReadings']:
+                hotWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['hotWaterSupply']
+                coldWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['coldWaterSupply']
+
+                date = (json.loads(r.text)['user']['meterReadings'][-1]['time'])
+                today = int(str(datetime.date.today()).split('-')[2])
+                month = int(str(datetime.date.today()).split('-')[1])
+                if today > 19 and today < 26\
+                        and int(json.loads(r.text)['user']['meterReadings'][-1]['time'].split('.')[1]) != month:
+                    b = bot.send_message(cmcd,f'Ваши последние показания счётчиков:\n'
+                                              f'\nДата обновления: *{date}*\n'
+                                              f'\nХолодная вода: *{coldWaterSupply}*'
+                                              f'\nГорячая вода: *{hotWaterSupply}*',
+                                         parse_mode='Markdown', reply_markup=menu_meter())
+                else:
+                    b = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                                               f'\nДата обновления: *{date}*\n'
+                                               f'\nХолодная вода: *{coldWaterSupply}*'
+                                               f'\nГорячая вода: *{hotWaterSupply}*'
+                                               f'\n\nВы сможете обновить показания только в следующем месяце,'
+                                               f' в период с 20 по 25 числа месяца',
+                                         parse_mode='Markdown')
+                    globalVar[str(cmcd)]['to_delete'].append(b.message_id)
+                    b = bot.send_message(cmcd, 'Если вы допустили ошибку при отправке данных,'
+                                               ' напишите нам в разделе *"Жалобы"*', parse_mode='Markdown',
+                                         reply_markup=back2())
+            else:
+                b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
+                                     reply_markup=menu_meter())
+            globalVar[str(cmcd)]['topic'] = str(a.message_id)
+            globalVar[str(cmcd)]['message_id'] = str(b.message_id)
+            print(globalVar)
+
         elif call.data == 'create__appeal':
             a = bot.edit_message_text('Опишите возникшую проблему:', cmcd, cmmi, reply_markup=back_to_menu_appeals())
             bot.register_next_step_handler(a, create_appeal, cmmi)
 
         elif call.data == 'send_text':
             text = 'Опишите возникшую проблему:'
+            print(globalVar)
             a = bot.edit_message_text(text, cmcd, cmmi, reply_markup=back_to_menu_appeals())
             b = globalVar[str(cmcd)]['to_delete'].pop()
             c = globalVar[str(cmcd)]['to_delete'].pop()
+            print(globalVar)
             bot.delete_message(cmcd, b)
             bot.delete_message(cmcd, c)
             bot.register_next_step_handler(a, send_text, cmmi, text)
 
         elif call.data == 'send_photo':
-            a = bot.edit_message_text('Пришлите фотографию возникшей проблемы:', cmcd, cmmi, reply_markup=back_to_menu_appeals2())
+            a = bot.edit_message_text('Пришлите фотографию возникшей проблемы:', cmcd, cmmi,
+                                  reply_markup=back_to_menu_appeals2())
             if globalVar[str(cmcd)]['photo_url'] == 'error':
                 b = globalVar[str(cmcd)]['to_delete'].pop()
                 c = globalVar[str(cmcd)]['to_delete'].pop()
@@ -590,7 +771,8 @@ def callback_query(call):
             bot.register_next_step_handler(a, send_photo, cmmi)
 
         elif call.data == 'upload_my_appeal':
-            a = bot.edit_message_text('Хотите отправить фотографию по проблеме?', cmcd, cmmi, reply_markup=upload_my_appeal())
+            a = bot.edit_message_text('Хотите отправить фотографию по проблеме?', cmcd, cmmi,
+                                      reply_markup=upload_my_appeal())
 
         elif call.data == 'send_appeal':
             send_appeal(cmcd, cmmi)
@@ -609,6 +791,21 @@ def callback_query(call):
         elif call.data == 'choose_appeal_forward':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) + 1)
             my_appeals(cmcd)
+
+        elif call.data == 'update_meter':
+            deleting(cmcd)
+            bot.delete_message(cmcd, int(globalVar[str(cmcd)]['message_id']))
+            with open('uploads/file_for_meter.jpg','rb') as f:
+                img = f.read()
+            a = bot.send_photo(photo=img, caption='Введите показания счетчика *ГВС*\n(Только черные цифры до запятой):',
+                               parse_mode="Markdown",
+                               chat_id=cmcd, reply_markup=back_to_menu_choose_meter())
+            globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+            bot.register_next_step_handler(a, hot_water_update, a.message_id, img)
+
+
+        elif call.data == 'send_meter':
+            send_meter1(cmcd)
 
         elif call.data == 'exit':
             exit(call.message.chat.id)
@@ -638,6 +835,47 @@ def callback_query(call):
             bot.delete_message(cmcd, globalVar[str(cmcd)]['message_id'])
             a = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_appeals())
             (globalVar[str(cmcd)]['message_id']) = str(a.message_id)
+
+        elif call.data == 'back_to_menu_choose_meter':
+            bot.clear_step_handler_by_chat_id(cmcd)
+            deleting(cmcd)
+            bot.delete_message(cmcd, globalVar[str(cmcd)]['message_id'])
+            s = requests.Session()
+            send_to = f'telegram/user/{cmcd}'
+            r = s.get(f'{url}/{send_to}')
+            deleting(cmcd)
+            if json.loads(r.text)['user']['meterReadings']:
+                hotWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['hotWaterSupply']
+                coldWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['coldWaterSupply']
+
+                today = int(str(datetime.date.today()).split('-')[2])
+                month = int(str(datetime.date.today()).split('-')[1])
+                date = (json.loads(r.text)['user']['meterReadings'][-1]['time'])
+                if today > 19 and today < 26\
+                        and int(json.loads(r.text)['user']['meterReadings'][-1]['time'].split('.')[1]) != month:
+                    a = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                                            f'\nДата обновления: *{date}*\n'
+                                            f'\nХолодная вода: *{coldWaterSupply}*'
+                                            f'\nГорячая вода: *{hotWaterSupply}*',
+                                        parse_mode='Markdown', reply_markup=menu_meter())
+                else:
+                    a = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                                               f'\nДата обновления: *{date}*\n'
+                                               f'\nХолодная вода: *{coldWaterSupply}*'
+                                               f'\nГорячая вода: *{hotWaterSupply}*'
+                                               f'\n\nВы сможете обновить показания только в следующем месяце,'
+                                               f' в период с 20 по 25 числа месяца',
+                                         parse_mode='Markdown')
+                    globalVar[str(cmcd)]['to_delete'].append(a.message_id)
+                    a = bot.send_message(cmcd,
+                                         'Если вы допустили ошибку при отправке данных,'
+                                         ' напишите нам в разделе *"Жалобы"*',
+                                         parse_mode='Markdown', reply_markup=back2())
+            else:
+                a = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
+                                     reply_markup=menu_meter())
+            (globalVar[str(cmcd)]['message_id']) = str(a.message_id)
+            globalVar[str(cmcd)]['meter'] = list()
 
 
         bot.answer_callback_query(call.id)
