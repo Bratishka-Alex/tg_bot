@@ -455,7 +455,7 @@ def send_appeal(id, bot_message_id):
         s.post(f'{url}/{send_to}', data=payload, files=files)
     else:
         s.post(f'{url}/{send_to}', json=payload)
-    bot.edit_message_text('Ваша жалоба принята💀', id, bot_message_id, reply_markup=back_to_menu_appeals())
+    bot.edit_message_text('Ваша жалоба принята 💀', id, bot_message_id, reply_markup=back_to_menu_appeals())
     globalVar[str(id)]['appeal_text'] = ''
 
 
@@ -893,7 +893,7 @@ def callback_query(call):
                     b = bot.send_message(cmcd,
                                          'У вас отстутсвуют данные счетчиков.'
                                          ' Вы сможете их указать только в период с 20 по 25 числа месяца',
-                                         reply_markup=menu_meter())
+                                         reply_markup=back2())
                 else:
                     b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков.'
                                                ' Вы сможете их указать только в следующем месяце',
@@ -949,7 +949,7 @@ def callback_query(call):
         elif call.data == 'update_meter':
             deleting(cmcd)
             bot.delete_message(cmcd, int(globalVar[str(cmcd)]['message_id']))
-            with open('uploads/file_for_meter.jpg','rb') as f:
+            with open('uploads/file_for_meter.jpg', 'rb') as f:
                 img = f.read()
             a = bot.send_photo(photo=img, caption='Введите показания счетчика *ГВС*\n(Только черные цифры до запятой):',
                                parse_mode="Markdown",
@@ -1035,7 +1035,7 @@ def callback_query(call):
             payload = {'value': str(call.data[15:])}
             send_to = f'appeals-from-tg/{cmcd}/order-statement'
             r = s.post(f'{url}/{send_to}', json=payload)
-            bot.edit_message_text('Справка успешно заказана!', cmcd, cmmi, reply_markup=back_to_menu_statements())
+            bot.edit_message_text('Справка успешно заказана! 💀', cmcd, cmmi, reply_markup=back_to_menu_statements())
 
 
         elif call.data == 'exit':
@@ -1118,7 +1118,7 @@ def callback_query(call):
                                          parse_mode='Markdown', reply_markup=back2())
             else:
                 a = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
-                                     reply_markup=menu_meter())
+                                     reply_markup=back2())
             (globalVar[str(cmcd)]['message_id']) = str(a.message_id)
             globalVar[str(cmcd)]['meter'] = list()
 
