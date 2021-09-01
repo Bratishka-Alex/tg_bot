@@ -62,7 +62,7 @@ def exit_confirm():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
     exit_confirmed = InlineKeyboardButton("Да", callback_data="exit_confirmed")
-    back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
+    back_to_menu_authorized = InlineKeyboardButton('Нет', callback_data='back_to_menu_authorized')
     markup.add(exit_confirmed, back_to_menu_authorized)
     return markup
 
