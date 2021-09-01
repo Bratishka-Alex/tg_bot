@@ -1060,7 +1060,12 @@ def callback_query(call):
             bot.clear_step_handler_by_chat_id(cmcd)
             deleting(cmcd)
             bot.delete_message(cmcd, cmmi)
-            a = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_authorized())
+            s = requests.Session()
+            send_to = f'telegram/user/{str(cmcd)}'
+            r = s.get(f'{url}/{send_to}')
+            firstname = json.loads(r.text)['user']['fullname'].split()[1].capitalize()
+            a = bot.send_message(cmcd, f"Приветствуем, *{firstname}*!\nВыберите действие:",
+                                     reply_markup=menu_authorized(), parse_mode="Markdown")
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
 
