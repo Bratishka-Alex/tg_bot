@@ -14,6 +14,7 @@ tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
 
+
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -74,6 +75,14 @@ def menu_appeals():
     markup.add(create__appeal, my__appeals, back_to_menu_authorized)
     return markup
 
+def menu_statements():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    create__statement = InlineKeyboardButton("Заказать справку 📨", callback_data="create__statement")
+    my__statements = InlineKeyboardButton("Мои справки 📬", callback_data="my__statements")
+    back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
+    markup.add(create__statement, my__statements, back_to_menu_authorized)
+    return markup
 
 def menu_meter():
     markup = InlineKeyboardMarkup()
@@ -105,29 +114,47 @@ def choose_appeal():
     markup.add(reload_my_appeal, back_to_menu_appeal)
     return markup
 
+def choose_statement():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2  # Ширина поля кнопок
+    choose_statement_back = InlineKeyboardButton("<--", callback_data='choose_statement_back')
+    choose_statement_forward = InlineKeyboardButton("-->", callback_data="choose_statement_forward")
+    reload_my_statement = InlineKeyboardButton('Обновить 🔄', callback_data='reload_my_statement')
+    back_to_menu_statements = InlineKeyboardButton('Назад', callback_data='statements')
+    markup.add(choose_statement_back, choose_statement_forward)
+    markup.row_width = 1  # Ширина поля кнопок
+    markup.add(reload_my_statement, back_to_menu_statements)
+    return markup
+
 def my_statements(statement_id, flag):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
-    button = InlineKeyboardButton(text='Заказать справку 📨', callback_data='order_' + str(statement_id))
+    button = InlineKeyboardButton(text='Заказать справку ⬆📨', callback_data='order_' + str(statement_id))
     markup.add(button)
     if flag:
-        back_to_menu_authorized = InlineKeyboardButton('Назад', callback_data='back_to_menu_authorized')
-        markup.add(back_to_menu_authorized)
+        back_to_menu_statements = InlineKeyboardButton('Назад', callback_data='statements')
+        markup.add(back_to_menu_statements)
     return markup
 
 def order_statement(value):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
     send_statement = InlineKeyboardButton('Да ✅', callback_data='send_statement_' + value)
-    back_to_choose_statement = InlineKeyboardButton('Нет', callback_data='statements')
+    back_to_choose_statement = InlineKeyboardButton('Нет', callback_data='create__statement')
     markup.add(send_statement, back_to_choose_statement)
     return markup
 
+def back_to_menu_statements():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    back_to_menu_statements = InlineKeyboardButton('Назад', callback_data='statements')
+    markup.add(back_to_menu_statements)
+    return markup
 
 def back_to_choose_statement():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
-    back_to_choose_statement = InlineKeyboardButton('Назад', callback_data='statements')
+    back_to_choose_statement = InlineKeyboardButton('Назад', callback_data='create__statement')
     markup.add(back_to_choose_statement)
     return markup
 
@@ -143,7 +170,6 @@ def logging_in(message, id):
         else:
             globalVar[str(message.chat.id)]['to_delete'].append(id)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-            print(globalVar)
             if validate_email(logs[0]):
                 bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)
                 a = bot.send_message(message.chat.id, 'Введите пароль:', reply_markup=back3())  # editing = 2
@@ -514,9 +540,7 @@ def send_meter1(id):
     payload = {"hotWater": globalVar[str(id)]['meter'][0],"coldWater": globalVar[str(id)]['meter'][1]}
     url = 'http://renat-hamatov.ru'
     send_to = f'telegram/user/meter-update/{id}'
-    print(f'{url}/{send_to}')
     r = s.post(f'{url}/{send_to}', json=payload)
-    print(r.text)
     try:
         if json.loads(r.text)['user']:
             bot.delete_message(id, globalVar[str(id)]['message_id'])
@@ -623,6 +647,84 @@ def my_appeals(id):
         bot.delete_message(id, int(globalVar[str(id)]['message_id']))
         b = bot.send_message(id, 'Вы не отправляли ни одной жалобы')
         a = bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_appeals1())
+        globalVar[str(id)]['to_delete'].append(b.message_id)
+    if a!= None:
+        globalVar[str(id)]['message_id'] = str(a.message_id)
+
+
+def my_statement(id):
+    s = requests.Session()
+    send_to = f'appeals-from-tg/{str(id)}/my'
+    r = s.get(f'{url}/{send_to}')
+    appeals = json.loads(r.text)['appeals']
+    appeals = appeals[::-1]
+    a = None
+
+    def filter_set(appeals):
+        def iterator_func(x):
+            if "statement" == x.get("type"):
+                return True
+            else:
+                return False
+
+        return filter(iterator_func, appeals)
+
+    appeals = list(filter_set(appeals))
+    if len(appeals) != 0:
+        if int(globalVar[str(id)]['move']) >= len(appeals):
+            globalVar[str(id)]['move'] = str(len(appeals))
+            try:
+                bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                a = bot.send_message(id, 'У вас нет более старых справок',
+                                    reply_markup=choose_statement())
+            except Exception:
+                None
+        elif int(globalVar[str(id)]['move']) <= -1:
+            globalVar[str(id)]['move'] = str(-1)
+            try:
+                bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                a = bot.send_message(id, 'У вас нет более новых справок',
+                                reply_markup=choose_statement())
+            except Exception:
+                None
+        elif json.loads(r.text)['appeals'] and len(appeals) != 0:
+            appeal_id = int(globalVar[str(id)]['move'])
+            t = appeals[appeal_id]
+            date = str(t['dateOfRequest'])
+            status = str(t['status'])
+            text = str(t['text'])[16:-1]
+            rejectReason = ''
+            if status == 'waiting':
+                status = 'Ожидание ⏳'
+            elif status == 'in_work':
+                status = 'В работе ⚒'
+            elif status == 'done':
+                status = "Выполнено ✅ "
+            elif status == 'rejected':
+                status = 'Отклонено ❌'
+                rejectReason = t['rejectReason']
+                rejectReason = f'\n\nПричина отклонения:\n*{rejectReason}*'
+            if len(appeals)-1 == 0:
+                bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                a = bot.send_message(text=f'{appeal_id + 1}/{len(appeals)}\n'
+                                                          f'Дата: *{date}*\n'
+                                                          f'Статус: *{status}*{rejectReason}\n\nСправка:\n*{text}*',
+                                       parse_mode="Markdown",
+                                       chat_id=id, reply_markup=back_to_menu_statements())
+            else:
+                bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                a = bot.send_message(id, f'{appeal_id + 1}/{len(appeals)}\n'
+                                             f'Дата: *{date}*\n'
+                                             f'Статус: *{status}*{rejectReason}\n\nСправка:\n*{text}*',
+                                         reply_markup=choose_statement(), parse_mode="Markdown")
+
+            #Если в предыдущем есть фото, то пусть edit_message_media, иначе edit_message_text"""
+
+    else:
+        deleting(id)
+        bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+        b = bot.send_message(id, 'Вы не заказывали ни одной справки')
+        a = bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_statements())
         globalVar[str(id)]['to_delete'].append(b.message_id)
     if a!= None:
         globalVar[str(id)]['message_id'] = str(a.message_id)
@@ -736,7 +838,6 @@ def callback_query(call):
             deleting(cmcd)
             globalVar[str(cmcd)]['topic'] = str(a.message_id)
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
-            print(globalVar)
 
         elif call.data == 'meter':
             bot.delete_message(cmcd, cmmi)
@@ -744,7 +845,6 @@ def callback_query(call):
             s = requests.Session()
             send_to = f'telegram/user/{cmcd}'
             r = s.get(f'{url}/{send_to}')
-            print(json.loads(r.text)['user'])
             deleting(cmcd)
             if json.loads(r.text)['user']['meterReadings']:
                 hotWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['hotWaterSupply']
@@ -800,7 +900,6 @@ def callback_query(call):
                                          reply_markup=back2())
             globalVar[str(cmcd)]['topic'] = str(a.message_id)
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
-            print(globalVar)
 
         elif call.data == 'create__appeal':
             a = bot.edit_message_text('Опишите возникшую проблему:', cmcd, cmmi, reply_markup=back_to_menu_appeals())
@@ -808,11 +907,9 @@ def callback_query(call):
 
         elif call.data == 'send_text':
             text = 'Опишите возникшую проблему:'
-            print(globalVar)
             a = bot.edit_message_text(text, cmcd, cmmi, reply_markup=back_to_menu_appeals())
             b = globalVar[str(cmcd)]['to_delete'].pop()
             c = globalVar[str(cmcd)]['to_delete'].pop()
-            print(globalVar)
             bot.delete_message(cmcd, b)
             bot.delete_message(cmcd, c)
             bot.register_next_step_handler(a, send_text, cmmi, text)
@@ -865,10 +962,17 @@ def callback_query(call):
 
         elif call.data == 'statements':
             bot.delete_message(cmcd, cmmi)
+            globalVar[str(cmcd)]['move'] = str(0)
             deleting(cmcd)
             if globalVar[str(cmcd)]['topic'] == None:
                 a = bot.send_message(cmcd, '*Справки*', parse_mode="Markdown")
                 globalVar[str(cmcd)]['topic'] = str(a.message_id)
+            b = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_statements())
+            globalVar[str(cmcd)]['message_id'] = str(b.message_id)
+
+        elif call.data == 'create__statement':
+            bot.delete_message(cmcd, cmmi)
+            deleting(cmcd)
             s = requests.Session()
             send_to = f'houses-from-tg/{cmcd}/statements'
             r = s.get(f'{url}/{send_to}')
@@ -887,12 +991,27 @@ def callback_query(call):
                                              reply_markup=my_statements(statement_id, True))
             else:
                 a = bot.send_message(cmcd, 'К сожалению, вы не можете заказать справки в данный момент',
-                                     reply_markup=back2())
+                                     reply_markup=back_to_menu_statements())
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
+
+        elif call.data == 'my__statements':
+            bot.edit_message_text('Ваши справки:', cmcd, cmmi)
+            my_statement(cmcd)
+
+        elif call.data == 'reload_my_statement':
+            my_statement(cmcd)
+
+        elif call.data == 'choose_statement_back':
+            globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) - 1)
+            my_statement(cmcd)
+
+        elif call.data == 'choose_statement_forward':
+            globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) + 1)
+            my_statement(cmcd)
+
 
         elif call.data[:6] == 'order_':
             statement_id = int(call.data[6:])
-            print(globalVar)
             a = globalVar[str(cmcd)]['to_delete'].pop(0)
             if cmmi in globalVar[str(cmcd)]['to_delete']:
                 globalVar[str(cmcd)]['to_delete'].remove(cmmi)
@@ -916,8 +1035,7 @@ def callback_query(call):
             payload = {'value': str(call.data[15:])}
             send_to = f'appeals-from-tg/{cmcd}/order-statement'
             r = s.post(f'{url}/{send_to}', json=payload)
-            print(r.text, payload)
-            bot.edit_message_text('Справка успешно заказана!', cmcd, cmmi, reply_markup=back_to_choose_statement())
+            bot.edit_message_text('Справка успешно заказана!', cmcd, cmmi, reply_markup=back_to_menu_statements())
 
 
         elif call.data == 'exit':
@@ -998,6 +1116,9 @@ def callback_query(call):
                                      reply_markup=menu_meter())
             (globalVar[str(cmcd)]['message_id']) = str(a.message_id)
             globalVar[str(cmcd)]['meter'] = list()
+
+        elif call.data == 'delete_notification':
+            bot.delete_message(cmcd, cmmi)
 
 
         bot.answer_callback_query(call.id)
