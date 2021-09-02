@@ -121,6 +121,7 @@ def choose_appeal(last, first):
     markup.add(reload_my_appeal, back_to_menu_appeal)
     return markup
 
+
 def choose_statement(last, first):
     markup = InlineKeyboardMarkup()
     markup.row_width = 2  # Ширина поля кнопок
@@ -138,6 +139,7 @@ def choose_statement(last, first):
     markup.row_width = 1  # Ширина поля кнопок
     markup.add(reload_my_statement, back_to_menu_statements)
     return markup
+
 
 def choose_statement_to_create(statement_id, last, first):
     markup = InlineKeyboardMarkup()
@@ -162,6 +164,7 @@ def choose_statement_to_create(statement_id, last, first):
     markup.add(back_to_menu_statements)
     return markup
 
+
 def create__statement__confirm():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
@@ -169,6 +172,7 @@ def create__statement__confirm():
     back_to_menu_statement = InlineKeyboardButton('Назад', callback_data='statements')
     markup.add(next_step, back_to_menu_statement)
     return markup
+
 
 def my_statements(statement_id, flag):
     markup = InlineKeyboardMarkup()
@@ -180,6 +184,7 @@ def my_statements(statement_id, flag):
         markup.add(back_to_menu_statements)
     return markup
 
+
 def order_statement(value):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
@@ -188,12 +193,14 @@ def order_statement(value):
     markup.add(send_statement, back_to_choose_statement)
     return markup
 
+
 def back_to_menu_statements():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1  # Ширина поля кнопок
     back_to_menu_statements = InlineKeyboardButton('Назад', callback_data='statements')
     markup.add(back_to_menu_statements)
     return markup
+
 
 def back_to_choose_statement():
     markup = InlineKeyboardMarkup()
