@@ -328,11 +328,21 @@ def back():
     return markup
 
 
+def upload_my_appeal_again():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    create_appeal = InlineKeyboardButton('Да', callback_data='create__appeal')
+    back_to_menu_appeals = InlineKeyboardButton('Нет', callback_data='back_to_menu_appeals')
+    markup.add(create_appeal, back_to_menu_appeals)
+    return markup
+
+
+
 def upload_my_appeal0():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    send_text = InlineKeyboardButton('Да ✅', callback_data='send_text')
-    back_to_menu_appeals = InlineKeyboardButton('Назад в меню', callback_data='back_to_menu_appeals')
+    send_text = InlineKeyboardButton('Да', callback_data='send_text')
+    back_to_menu_appeals = InlineKeyboardButton('Нет', callback_data='back_to_menu_appeals')
     markup.add(send_text, back_to_menu_appeals)
     return markup
 
@@ -398,6 +408,15 @@ def create_appeal(message, bot_message_id):
 
         a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+    else:
+        bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
+        globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
+        globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+        a = bot.send_message(message.chat.id, 'Вы отправили не текст!\nХотите повторить ввод?',
+                             reply_markup=upload_my_appeal_again())
+        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
 
 def send_text(message,bot_id_message, text):
     if message.text != None:
@@ -902,6 +921,7 @@ def callback_query(call):
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
 
         elif call.data == 'create__appeal':
+            deleting(cmcd)
             a = bot.edit_message_text('Опишите возникшую проблему:', cmcd, cmmi, reply_markup=back_to_menu_appeals())
             bot.register_next_step_handler(a, create_appeal, cmmi)
 
