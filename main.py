@@ -14,7 +14,6 @@ tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
 
-
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
 
@@ -718,7 +717,7 @@ def my_statement(id):
             elif status == 'in_work':
                 status = 'В работе ⚒'
             elif status == 'done':
-                status = "Выполнено ✅ "
+                status = "Доставлено до почтового ящика ✅ "
             elif status == 'rejected':
                 status = 'Отклонено ❌'
                 rejectReason = t['rejectReason']
