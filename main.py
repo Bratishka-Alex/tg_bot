@@ -14,7 +14,7 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-token = '1916725688:AAHYf_xiBjGaCOdEiiIadVwi8gkXsqiyjf8'  # bot constants Проф2
+
 
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
