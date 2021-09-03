@@ -14,7 +14,7 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-
+token = '1916725688:AAHYf_xiBjGaCOdEiiIadVwi8gkXsqiyjf8'  # bot constants Проф2
 
 bot = telebot.TeleBot(token)
 url = 'http://renat-hamatov.ru'
@@ -1079,7 +1079,8 @@ def callback_query(call):
             flat = r['user']['flat']
             pat = "(.*)(-\d{2}-\d{2})$"
             mask_part, public_part = re.match(pat, phone).groups()
-            phone = re.sub("\d", "#", mask_part) + public_part
+            public_part = public_part.split('-')
+            phone = re.sub("\d", "#", mask_part) + '-' + public_part[1] + public_part[2]
 
             a = bot.send_message(cmcd, f'Обращаем ваше внимание, что все документы формируются на основе данных,'
                                        f' указанных при регистрации.\nВо избежание ошибок, проверьте ваши данные.\n\n'
