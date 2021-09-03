@@ -17,7 +17,7 @@ globalVar = dict()
 
 
 bot = telebot.TeleBot(token)
-url = 'http://renat-hamatov.ru'
+url = 'https://api-prof.ru'
 
 
 def save_users(users):
@@ -1077,10 +1077,15 @@ def callback_query(call):
             city = house['city']
             address = house['address']
             flat = r['user']['flat']
-            pat = "(.*)(-\d{2}-\d{2})$"
-            mask_part, public_part = re.match(pat, phone).groups()
-            public_part = public_part.split('-')
-            phone = re.sub("\d", "#", mask_part) + '-' + public_part[1] + public_part[2]
+            if phone[:2] != '+7' and phone[:2] != '8 ':
+                pat = "(.*)(\d{4})$"
+                mask_part, public_part = re.match(pat, phone).groups()
+                phone = re.sub("\d", "#", mask_part) + '-' + public_part
+            else:
+                pat = "(.*)(-\d{2}-\d{2})$"
+                mask_part, public_part = re.match(pat, phone).groups()
+                public_part = public_part.split('-')
+                phone = re.sub("\d", "#", mask_part) + '-' + public_part[1] + public_part[2]
 
             a = bot.send_message(cmcd, f'Обращаем ваше внимание, что все документы формируются на основе данных,'
                                        f' указанных при регистрации.\nВо избежание ошибок, проверьте ваши данные.\n\n'
