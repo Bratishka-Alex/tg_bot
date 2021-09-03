@@ -1068,14 +1068,17 @@ def callback_query(call):
             r = s.get(f'{url}/{send_to}')
             r = json.loads(r.text)
             FNP = r['user']['fullname'].split()
-            fullname = f'{FNP[0]} {FNP[1][0]}. {FNP[2][0]}.'
+            if FNP[2] != 'Отсутствует':
+                fullname = f'{FNP[0]} {FNP[1][0]}. {FNP[2][0]}.'
+            else:
+                fullname = f'{FNP[0]} {FNP[1][0]}.'
             phone = r['user']['phone']
             house = r['user']['house']
             city = house['city']
             address = house['address']
             flat = r['user']['flat']
-            pat = "(.*)(-\d{4})$"
-            mask_part, public_part = re.match(pat, f"+{phone[0]}({phone[1:4]}) {phone[4:7]}-{phone[7:11]}").groups()
+            pat = "(.*)(-\d{2}-\d{2})$"
+            mask_part, public_part = re.match(pat, phone).groups()
             phone = re.sub("\d", "#", mask_part) + public_part
 
             a = bot.send_message(cmcd, f'Обращаем ваше внимание, что все документы формируются на основе данных,'
