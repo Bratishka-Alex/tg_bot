@@ -14,7 +14,7 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-
+token = '1916725688:AAFM8BeiMBY9qmRqN3-5elo8RXmQ1_6HTAA'  # bot constants Проф2
 
 bot = telebot.TeleBot(token)
 url = 'https://api-prof.ru'
@@ -917,7 +917,7 @@ def callback_query(call):
 
         elif call.data == 'registration':
             bot.delete_message(cmcd, cmmi)
-            a = bot.send_message(cmcd, f'Регистрация проходит на сайте:\n {url}', reply_markup=back3())
+            a = bot.send_message(cmcd, f'Регистрация проходит на сайте:\nhttps://prof-uk.ru/signup', reply_markup=back3())
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
         elif call.data == 'appeals':
