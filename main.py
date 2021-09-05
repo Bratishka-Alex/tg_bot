@@ -546,8 +546,16 @@ def send_photo(message, bot_id_message):
         globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     except Exception:
-        if message.text.lower() == '/start':
-            error_func(message.chat.id, message.message_id)
+        if message.text != None:
+            if message.text.lower() == '/start':
+                error_func(message.chat.id, message.message_id)
+            else:
+                a = bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
+                                     reply_markup=upload_my_appeal())
+                globalVar[str(message.chat.id)]['photo_url'] = 'error'
+                globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
+                globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         else:
             a = bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
                             reply_markup=upload_my_appeal())
