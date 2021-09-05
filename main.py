@@ -534,17 +534,25 @@ def send_text(message,bot_id_message, text):
 def send_photo(message, bot_id_message):
     bot.edit_message_text('Пришлите фотографию возникшей проблемы:', message.chat.id, bot_id_message)
     try:
-        file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
+        if message.caption == None:
+            file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
 
-        src = 'uploads/' + file_info.file_path
-        with open(src, 'wb') as new_file:
-            new_file.write(downloaded_file)
-        globalVar[str(message.chat.id)]['photo_url'] = src
-        a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
-        globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-        globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
-        globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+            src = 'uploads/' + file_info.file_path
+            with open(src, 'wb') as new_file:
+                new_file.write(downloaded_file)
+            globalVar[str(message.chat.id)]['photo_url'] = src
+            a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
+        else:
+            a = bot.send_message(message.chat.id, 'Вы отправили два разных текста!',
+                                 reply_markup=back_to_menu_appeals())
+            globalVar[str(message.chat.id)]['photo_url'] = 'error'
+            globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
+            globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     except Exception:
         if message.text != None:
             if message.text.lower() == '/start':
