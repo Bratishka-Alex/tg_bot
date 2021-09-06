@@ -8,15 +8,14 @@ from geopy.geocoders import Nominatim
 import json
 import requests
 from validate_email import validate_email
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
+
 
 geolocator = Nominatim(user_agent="tg_bot")
 
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-token = '1916725688:AAFmHmgM6bA5YH1cqPlxjVrB26qVheUglDw'  # bot constants Проф2
+
 
 bot = telebot.TeleBot(token)
 url = 'https://api-prof.ru'
@@ -459,27 +458,8 @@ def create_statement_now(id, bot_message_id):
                              reply_markup=back_to_menu_statements())
     globalVar[str(id)]['message_id'] = str(a.message_id)
 
+
 def create_appeal(message, bot_message_id):
-    bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
-    globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
-    globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-    try:
-        driver = webdriver.Chrome(executable_path='chromedriver.exe')
-        driver.get('https://pb.nalog.ru/')
-
-        input_field = driver.find_element_by_id('queryAll')
-        input_field.send_keys(message.text)
-        input_field.send_keys(Keys.ENTER)
-        time.sleep(2)
-        name = driver.find_element_by_class_name('result-group-name')
-        bot.send_message(message.chat.id, name.text)
-        driver.quit()
-    except Exception as e:
-        print(e)
-        bot.send_message(message.chat.id, 'пошел21 нахер')
-
-
-def create_appeal12(message, bot_message_id):
     if message.text != None:
         if message.text.lower() == '/start':
             error_func(message.chat.id, message.message_id)
