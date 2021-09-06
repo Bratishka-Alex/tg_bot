@@ -464,7 +464,7 @@ def create_appeal(message, bot_message_id):
     globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
     globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     try:
-        driver = webdriver.Chrome(executable_path='C:/Users/aleks/PycharmProjects/pythonProject/chromedriver.exe')
+        driver = webdriver.Chrome(executable_path='chromedriver.exe')
         driver.get('https://pb.nalog.ru/')
 
         input_field = driver.find_element_by_id('queryAll')
