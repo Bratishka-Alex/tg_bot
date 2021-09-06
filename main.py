@@ -476,7 +476,7 @@ def create_appeal(message, bot_message_id):
         driver.quit()
     except Exception as e:
         print(e)
-        bot.send_message(message.chat.id, 'пошел нахер')
+        bot.send_message(message.chat.id, 'пошел1 нахер')
 
 
 def create_appeal12(message, bot_message_id):
