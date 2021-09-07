@@ -3,7 +3,7 @@ import time
 import telebot
 import os
 import re
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from geopy.geocoders import Nominatim
 import json
 import requests
@@ -310,6 +310,21 @@ def check(id):
             return True
     except Exception:
         return False
+
+
+def understand():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    understand = InlineKeyboardButton('Хорошо, спасибо!', callback_data='delete_notification')
+    markup.add(understand)
+    return markup
+
+def understand1():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1  # Ширина поля кнопок
+    understand = InlineKeyboardButton('Хорошо, спасибо!', callback_data='delete_notification1')
+    markup.add(understand)
+    return markup
 
 
 def exit(id):
@@ -849,13 +864,15 @@ def error_func(id,bot_message_id):
         globalVar[str(id)]['appeal_text'] = ''
         globalVar[str(id)]['photo_url'] = ''
         globalVar[str(id)]['meter'] = list()
+        globalVar[str(id)]['help_message'] = list()
     try:
         bot.delete_message(id, int(globalVar[str(id)]['error_messages']))
     except Exception:
         None
     bot.delete_message(id, bot_message_id)
-    a = bot.send_message(id, 'Воспользуйтесь предложенными кнопками. '
-                                      'Если кнопки исчезли, введите команду /start')
+    a = bot.send_message(id, 'Воспользуйтесь предложенными кнопками. \n'
+                                      'Если кнопки исчезли, введите команду /start\n'
+                             'Если у вас трудности с ботом, введите команду /help')
     globalVar[str(id)]['error_messages'] = a.message_id
 
 
@@ -875,7 +892,12 @@ def send_welcome(message):
         globalVar[str(message.chat.id)]['appeal_text'] = ''
         globalVar[str(message.chat.id)]['photo_url'] = ''
         globalVar[str(message.chat.id)]['meter'] = list()
-
+        globalVar[str(message.chat.id)]['help_message'] = list()
+    if globalVar[str(message.chat.id)]['message_id'] == '':
+        bot.send_message(message.chat.id, 'Привет!\nЭтот бот сделан специально для жильцов домов УК Профессионал!\n\n'
+                             'С его помощью вы можете оставить жалобу, поменять показания счётчиков'
+                             ' или заказать справку. \nЕсли вы в чем-то запутались или хотите узнать подробней'
+                             ' о боте напишите /help\n\nС уважением, создатели проекта.', reply_markup=understand())
     globalVar[str(message.chat.id)]['move'] = '0'
     globalVar[str(message.chat.id)]['appeal_text'] = ''
     globalVar[str(message.chat.id)]['meter'] = list()
@@ -908,6 +930,47 @@ def send_welcome(message):
         bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['topic']))
         globalVar[str(message.chat.id)]['topic'] = None
     globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+
+
+@bot.message_handler(commands=['help'])
+def help_command(message):
+    bot.delete_message(message.chat.id, message.message_id)
+    try:
+        bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
+    except Exception:
+        None
+    if len(globalVar[str(message.chat.id)]['help_message']) != 0:
+        for id in globalVar[str(message.chat.id)]['help_message']:
+            bot.delete_message(message.chat.id, id)
+    globalVar[str(message.chat.id)]['help_message'] = list()
+    a = bot.send_media_group(message.chat.id, media=[(InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/0.jpg?raw=true', caption='Стартовое меню.\n'
+                                                                                                                                                               'Чтобы открыть доступ к панеле пользователя вам необходимо авторизоваться.')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/1.jpg?raw=true', caption='Вход в аккаунт.\n'
+                                                                                                                                                               'Вам необходимо указать в два сообщения вашу почту и пароль')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/2.jpg?raw=true', caption='Авторизованное меню\n'
+                                                                                                                                                               'Вы прошли авторизацию и вам доступны на выбор\n'
+                                                                                                                                                               '• Жалобы (предусматривают подачу и просмотр жалоб)\n'
+                                                                                                                                                               '• Счётчики (позволяют изменить показания счётчиков в период с 20 по 25 числа месяца\n'
+                                                                                                                                                               '• Справки (открывают заказ и просмотр справок')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/3.jpg?raw=true', caption='Подача жалобы\n'
+                                                                                                                                                               'Укажите возникшую проблему в любом удобном вам формате\n'
+                                                                                                                                                               '(текст и фото по отдельности; фото и текст одним сообщением)')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/4.jpg?raw=true', caption='Пример подачи жалобы с фото')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/5.jpg?raw=true', caption='Меню ваших жалоб\n'
+                                                                                                                                                               'Вы можете просмотреть поданные жалобы и определить, какие из них ожидают просмотра, находятся в работе, выполнены или отклонены')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/6.jpg?raw=true', caption='Заказ справки\n'
+                                                                                                                                                               'Система проверяет ваши данные в системе и просит у вас подтверждения\n'
+                                                                                                                                                               'В случае ошибки, незамедлительно обратитесь к нам через раздел "Пожаловаться"')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/7.jpg?raw=true', caption='Подача счётчиков\n'
+                                                                                                                                                               'Данная процедура доступна только в период с 20 по 25 числа каждого месяца\n'
+                                                                                                                                                               'Если вы допустили ошибку в даннх - не переживайте, так как через месяц сможете подать верные показания')),
+                                                 (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/8.jpg?raw=true', caption='Подача счётчиков'))
+                                                 ])
+
+    for id in a:
+        globalVar[str(message.chat.id)]['help_message'].append(id.message_id)
+    a = bot.send_message(message.chat.id, 'Если у вас остались вопросы в работе бота, напишите нам через раздел "Пожаловаться"', reply_markup=understand1())
+    globalVar[str(message.chat.id)]['help_message'].append(a.message_id)
 
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
@@ -995,7 +1058,7 @@ def callback_query(call):
                 today = int(str(datetime.date.today()).split('-')[2])
                 if today > 19 and today < 26:
                     b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
-                                     reply_markup=back2())
+                                     reply_markup=menu_meter())
                 elif today < 20:
                     b = bot.send_message(cmcd,
                                          'У вас отстутсвуют данные счетчиков.'
@@ -1248,12 +1311,17 @@ def callback_query(call):
                                          parse_mode='Markdown', reply_markup=back2())
             else:
                 a = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
-                                     reply_markup=back2())
+                                     reply_markup=menu_meter())
             (globalVar[str(cmcd)]['message_id']) = str(a.message_id)
             globalVar[str(cmcd)]['meter'] = list()
 
         elif call.data == 'delete_notification':
             bot.delete_message(cmcd, cmmi)
+
+        elif call.data == 'delete_notification1':
+            for id in globalVar[str(cmcd)]['help_message']:
+                bot.delete_message(cmcd, id)
+            globalVar[str(cmcd)]['help_message'] = list()
 
 
         bot.answer_callback_query(call.id)
