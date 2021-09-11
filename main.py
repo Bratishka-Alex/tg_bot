@@ -600,7 +600,7 @@ def send_appeal(id, bot_message_id):
         s.post(f'{url}/{send_to}', data=payload, files=files)
     else:
         s.post(f'{url}/{send_to}', json=payload)
-    bot.edit_message_text('Ваша жалоба принята 💀', id, bot_message_id, reply_markup=back_to_menu_appeals())
+    bot.edit_message_text('Ваша жалоба принята', id, bot_message_id, reply_markup=back_to_menu_appeals())
     globalVar[str(id)]['appeal_text'] = ''
 
 
@@ -1228,7 +1228,7 @@ def callback_query(call):
             payload = {'value': str(call.data[15:])}
             send_to = f'appeals-from-tg/{cmcd}/order-statement'
             r = s.post(f'{url}/{send_to}', json=payload)
-            bot.edit_message_text('Справка успешно заказана! 💀', cmcd, cmmi, reply_markup=back_to_menu_statements())
+            bot.edit_message_text('Справка успешно заказана!', cmcd, cmmi, reply_markup=back_to_menu_statements())
 
 
         elif call.data == 'exit':
