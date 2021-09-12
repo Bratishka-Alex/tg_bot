@@ -963,7 +963,7 @@ def help_command(message):
                                                                                                                                                                'В случае ошибки, незамедлительно обратитесь к нам через раздел "Пожаловаться"')),
                                                  (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/7.jpg?raw=true', caption='Подача счётчиков\n'
                                                                                                                                                                'Данная процедура доступна только в период с 20 по 25 числа каждого месяца\n'
-                                                                                                                                                               'Если вы допустили ошибку в даннх - не переживайте, так как через месяц сможете подать верные показания')),
+                                                                                                                                                               'Если вы допустили ошибку в данных - не переживайте, так как через месяц сможете подать верные показания')),
                                                  (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/8.jpg?raw=true', caption='Подача счётчиков'))
                                                  ])
 
