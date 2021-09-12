@@ -969,7 +969,7 @@ def help_command(message):
 
     for id in a:
         globalVar[str(message.chat.id)]['help_message'].append(id.message_id)
-    a = bot.send_message(message.chat.id, 'Если у вас остались вопросы в работе бота, напишите нам через раздел "Пожаловаться"', reply_markup=understand1())
+    a = bot.send_message(message.chat.id, 'Если у вас остались вопросы в работе бота, напишите нам:\nsupport@prof-uk.ru', reply_markup=understand1())
     globalVar[str(message.chat.id)]['help_message'].append(a.message_id)
 
 
