@@ -1,9 +1,13 @@
 import datetime
+import asyncio
 import time
-import telebot
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 import os
 import re
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from geopy.geocoders import Nominatim
 import json
 import requests
@@ -15,30 +19,32 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
+token = '1916725688:AAFK3mBOtt3UoEyeco65JPjo4Hpy6g0MTWs'
 
+storage = MemoryStorage()
+bot = Bot(token=token)
+dp = Dispatcher(bot=bot, storage=storage)
 
-bot = telebot.TeleBot(token)
 url = 'https://api-prof.ru'
 
-
-def save_users(users):
-    with open('users.txt', 'w') as outfile:
-        json.dump(users, outfile)
-
-
-def listener(messages):
-    for m in messages:
-        if m.content_type == 'text':
-            print("––––––––––––––––––––––––––––––––––––––––––––––––––––––")
-            print(f'{m.chat.first_name}[{m.chat.id}][{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M")}]: {m.text}')
-            with open('logs.txt', 'a', encoding='utf-8') as logs_file:
-                logs_file.write("––––––––––––––––––––––––––––––––––––––––––––––––––––––\n")
-                logs_file.write(
-                    f'{m.chat.first_name}[{m.chat.id}][{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M")}]: '
-                    f'{m.text}\n')
+class State_list(StatesGroup):
+    waiting_login_email = State()
+    waiting_login_password = State()
+    waiting_appeal_text = State()
+    waiting_appeal_photo = State()
+    waiting_cold_water = State()
+    waiting_hot_water = State()
+    waiting_create_appeal = State()
 
 
-bot.set_update_listener(listener)
+def register_handlers(dp: Dispatcher):
+    dp.register_message_handler(logging_in, state=State_list.waiting_login_email)
+    dp.register_message_handler(logging_in2, state=State_list.waiting_login_password)
+    dp.register_message_handler(send_text, state=State_list.waiting_appeal_text)
+    dp.register_message_handler(create_appeal, state=State_list.waiting_create_appeal)
+    dp.register_message_handler(send_photo, state=State_list.waiting_appeal_photo)
+    dp.register_message_handler(cold_water_update, state=State_list.waiting_cold_water)
+    dp.register_message_handler(hot_water_update, state=State_list.waiting_hot_water)
 
 
 def menu():
@@ -211,44 +217,65 @@ def back_to_choose_statement():
     return markup
 
 
-
-def logging_in(message, id):
+@dp.message_handler(state=State_list.waiting_login_email, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def logging_in(message: types.Message, state: FSMContext):
     global globalVar
+    async with state.proxy() as data:
+        chat_id = data['id']
+        id = data['bot_message_id']
     logs = list()
     logs.append(message.text)
-    if message.text != None:
+    if message.text is not None:
         if message.text.lower() == '/start':
-            error_func(message.chat.id, message.message_id)
+            await error_func(message.chat.id, message.message_id)
         else:
             globalVar[str(message.chat.id)]['to_delete'].append(id)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             if validate_email(logs[0]):
-                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)
-                a = bot.send_message(message.chat.id, 'Введите пароль:', reply_markup=back3())  # editing = 2
+                await bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)
+                a = await bot.send_message(message.chat.id, 'Введите пароль:', reply_markup=back3())  # editing = 2
                 globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-                bot.register_next_step_handler(a, logging_in2, logs, a.message_id)
+                globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
+                async with state.proxy() as data:
+                    data['id'] = message.chat.id
+                    data['bot_message_id'] = a.message_id
+                    data['logs'] = logs
+                await State_list.waiting_login_password.set()
 
             else:
-                bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)
-                d = bot.send_message(message.chat.id, 'Недействительный адрес электронной почты\nВыберите действие:',
+                await bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)
+                d = await bot.send_message(message.chat.id, 'Недействительный адрес электронной почты\nВыберите действие:',
                                 reply_markup=back())  # editing = 2
                 globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
+                globalVar[str(message.chat.id)]['message_id_time_send'] = str(d.date)
     else:
         globalVar[str(message.chat.id)]['to_delete'].append(id)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-        bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
-        d = bot.send_message(message.chat.id, 'Пожалуйста, укажите действительный адрес электронной почты без вложений'
+        await bot.edit_message_text('Введите адрес электронной почты для авторизации:', message.chat.id, id)  # editing = 0
+        d = await bot.send_message(message.chat.id, 'Пожалуйста, укажите действительный адрес электронной почты без вложений'
                                               ' в чат\nВыберите действие:',
                              reply_markup=back())  # editing = 2
         globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(d.date)
 
-def logging_in2(message, logs, id):
+
+@dp.message_handler(state=State_list.waiting_login_password, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def logging_in2(message: types.Message, state: FSMContext):
     global globalVar
+    async with state.proxy() as data:
+        chat_id = data['id']
+        id = data['bot_message_id']
+        logs = data['logs']
+
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.finish()
+        await state.reset_state()
     logs.append(message.text)
 
-    if message.text != None:
+    if message.text is not None:
         if message.text.lower() == '/start':
-            error_func(message.chat.id, message.message_id)
+            await error_func(message.chat.id, message.message_id)
         else:
             globalVar[str(message.chat.id)]['to_delete'].append(id)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
@@ -259,45 +286,56 @@ def logging_in2(message, logs, id):
                 r = s.post(f'{url}/{send_to}', json=payload)
                 try:
                     if json.loads(r.text)['user'] and json.loads(r.text)['user']['emailVerified']:
-                        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-                        a = bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅',
+                        await bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                        a = await bot.send_message(message.chat.id, 'Вы вошли в свой аккаунт!✅',
                                              reply_markup=menu_authorized())
                         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
                     else:
-                        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-                        a = bot.send_message(message.chat.id,
+                        await bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                        a = await bot.send_message(message.chat.id,
                                             'Вы не подтвердили почту! На ваш электронный адрес отправлено новое письмо'
                                             ' для подтверждения. Перейдите по ссылке в письме и повторите авторизацию.',
                                             reply_markup=menu())  # editing = 4
                         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
                         exit(message.chat.id)
                 except Exception:
-                        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                        await bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
                         mes = json.loads(r.text)['message']
-                        a = bot.send_message(message.chat.id, f'{mes}\nВыберите действие:',
+                        a = await bot.send_message(message.chat.id, f'{mes}\nВыберите действие:',
                                             reply_markup=menu())
                         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-                deleting(message.chat.id)
+                globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
+                await deleting(message.chat.id)
             else:
-                bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-                d = bot.send_message(message.chat.id, 'Вы отправили слишком короткий пароль.\nМинимальная длина пароля'
+                await bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+                d = await bot.send_message(message.chat.id, 'Вы отправили слишком короткий пароль.\nМинимальная длина пароля'
                                                       ' - 8\nВыберите действие:',
                                      reply_markup=back())  # editing = 2
                 globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
+                globalVar[str(message.chat.id)]['message_id_time_send'] = str(d.date)
     else:
         globalVar[str(message.chat.id)]['to_delete'].append(id)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-        bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
-        d = bot.send_message(message.chat.id, 'Пожалуйста, укажите действительный пароль без вложений'
+        await bot.edit_message_text('Введите пароль:', message.chat.id, id)  # editing = 0
+        d = await bot.send_message(message.chat.id, 'Пожалуйста, укажите действительный пароль без вложений'
                                               ' в чат\nВыберите действие:',
                              reply_markup=back())  # editing = 2
         globalVar[str(message.chat.id)]['message_id'] = str(d.message_id)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(d.date)
 
 
-def deleting(chat_id):
+async def delete_message(id, bot_message_id):
+    await bot.delete_message(id, bot_message_id)
+
+
+async def deleting(chat_id):
     if len(globalVar[str(chat_id)]['to_delete']) != 0:
+        tasks = list()
         for message in globalVar[str(chat_id)]['to_delete']:
-            bot.delete_message(chat_id, message)
+            tasks.append(asyncio.create_task(delete_message(chat_id, message)))
+        await asyncio.gather(*tasks)
     globalVar[str(chat_id)]['to_delete'] = list()
 
 
@@ -431,9 +469,9 @@ def upload_my_appeal1():
     markup.add(send_appeal, back_to_menu_appeals)
     return markup
 
-def create_statement_now(id, bot_message_id):
-    bot.delete_message(id, bot_message_id)
-    deleting(id)
+async def create_statement_now(id, bot_message_id):
+    await bot.delete_message(id, bot_message_id)
+    await deleting(id)
 
     s = requests.Session()
     send_to = f'houses-from-tg/{id}/statements'
@@ -445,152 +483,184 @@ def create_statement_now(id, bot_message_id):
         print(globalVar)
         for statement_id in range(start, start + 3):
             if len(statements) <= 3 and statement_id == len(statements) - 1:
-                a = bot.send_message(id,
+                a = await bot.send_message(id,
                                         f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}',
                                         reply_markup=my_statements(statement_id, True))
                 break
             elif statement_id == start + 2 or statement_id == len(statements) - 1:
                 if statement_id in [0,1,2]:
-                    a = bot.send_message(id,
+                    a = await bot.send_message(id,
                                             f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}',
                                             reply_markup=choose_statement_to_create(statement_id, False, True))
                 elif statement_id in [3*(len(statements)//3), 3*(len(statements)//3) + 1, 3*(len(statements)//3) + 2]:
-                    a = bot.send_message(id, f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}',
+                    a = await bot.send_message(id, f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}',
                                         reply_markup=choose_statement_to_create(statement_id, True, False))
                 else:
-                    a = bot.send_message(id,
+                    a = await bot.send_message(id,
                                             f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}',
                                             reply_markup=choose_statement_to_create(statement_id, False, False))
                 break
             else:
-                a = bot.send_message(id,
+                a = await bot.send_message(id,
                                         f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}',
                                         reply_markup=my_statements(statement_id, False))
                 globalVar[str(id)]['to_delete'].append(a.message_id)
 
     else:
-        a = bot.send_message(id, 'К сожалению, вы не можете заказать справки в данный момент',
+        a = await bot.send_message(id, 'К сожалению, вы не можете заказать справки в данный момент',
                              reply_markup=back_to_menu_statements())
     globalVar[str(id)]['message_id'] = str(a.message_id)
 
 
-def create_appeal(message, bot_message_id):
-    if message.text != None:
+@dp.message_handler(state=State_list.waiting_create_appeal, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def create_appeal(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        id = data['id']
+        bot_message_id = data['bot_message_id']
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.finish()
+        await state.reset_state()
+    if message.text is not None:
         if message.text.lower() == '/start':
-            error_func(message.chat.id, message.message_id)
+            await error_func(message.chat.id, message.message_id)
         else:
-            bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
+            await bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             globalVar[str(message.chat.id)]['appeal_text'] = message.text
-            a = bot.send_message(message.chat.id, 'Хотите отправить фотографию по проблеме?',
+            a = await bot.send_message(message.chat.id, 'Хотите отправить фотографию по проблеме?',
                                 reply_markup=upload_my_appeal())
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
     elif message.photo != None and message.caption == None:
-        bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
+        await bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
 
-        file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
+        file_info = await bot.get_file(message.photo[len(message.photo) - 1].file_id)
         src = 'uploads/' + file_info.file_path
-        with open(src, 'wb') as new_file:
-            new_file.write(downloaded_file)
+        await message.photo[-1].download(src)
         globalVar[str(message.chat.id)]['photo_url'] = src
         text = 'Вы прислали фото.\nТеперь опишите возникшую проблему:'
-        a = bot.send_message(message.chat.id, text, reply_markup=back_to_menu_appeals())
+        a = await bot.send_message(message.chat.id, text, reply_markup=back_to_menu_appeals())
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-        bot.register_next_step_handler(a, send_text, a.message_id, text)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
+        async with state.proxy() as data:
+            data['id'] = message.chat.id
+            data['bot_message_id'] = a.message_id
+            data['text'] = text
+        await State_list.waiting_appeal_text.set()
 
     elif message.photo != None and message.caption != None:
-        bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
+        await bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         globalVar[str(message.chat.id)]['appeal_text'] = message.caption
 
-        file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
+        file_info = await bot.get_file(message.photo[len(message.photo) - 1].file_id)
         src = 'uploads/' + file_info.file_path
-        with open(src, 'wb') as new_file:
-            new_file.write(downloaded_file)
+        await message.photo[-1].download(src)
         globalVar[str(message.chat.id)]['photo_url'] = src
 
-        a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
+        a = await bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
     else:
-        bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
+        await bot.edit_message_text('Опишите возникшую проблему:', message.chat.id, bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
-        a = bot.send_message(message.chat.id, 'Вы отправили не текст!\nХотите повторить ввод?',
+        a = await bot.send_message(message.chat.id, 'Вы отправили не текст!\nХотите повторить ввод?',
                              reply_markup=upload_my_appeal_again())
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
 
-def send_text(message,bot_id_message, text):
-    if message.text != None:
+@dp.message_handler(state=State_list.waiting_appeal_text, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def send_text(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        id = data['id']
+        bot_id_message = data['bot_message_id']
+        text = data['text']
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.finish()
+        await state.reset_state()
+    if message.text is not None:
         if message.text.lower() == '/start':
-            error_func(message.chat.id, message.message_id)
+            await error_func(message.chat.id, message.message_id)
         else:
-            bot.edit_message_text(text, message.chat.id, bot_id_message)
+            await bot.edit_message_text(text, message.chat.id, bot_id_message)
             globalVar[str(message.chat.id)]['appeal_text'] = message.text
-            a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
+            a = await bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
             globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
     else:
-        bot.edit_message_text(text, message.chat.id, bot_id_message)
-        a = bot.send_message(message.chat.id, 'Вы отправили не текст! Хотите повторить ввод текста?',
+        await bot.edit_message_text(text, message.chat.id, bot_id_message)
+        a = await bot.send_message(message.chat.id, 'Вы отправили не текст! Хотите повторить ввод текста?',
                              reply_markup=upload_my_appeal0())
         globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
 
-def send_photo(message, bot_id_message):
-    bot.edit_message_text('Пришлите фотографию возникшей проблемы:', message.chat.id, bot_id_message)
+@dp.message_handler(state=State_list.waiting_appeal_photo, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def send_photo(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        id = data['id']
+        bot_id_message = data['bot_message_id']
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.finish()
+        await state.reset_state()
+    await bot.edit_message_text('Пришлите фотографию возникшей проблемы:', message.chat.id, bot_id_message)
     try:
-        if message.caption == None:
-            file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
-            downloaded_file = bot.download_file(file_info.file_path)
-
+        if message.caption is None:
+            file_info = await bot.get_file(message.photo[len(message.photo) - 1].file_id)
             src = 'uploads/' + file_info.file_path
-            with open(src, 'wb') as new_file:
-                new_file.write(downloaded_file)
+            await message.photo[-1].download(src)
             globalVar[str(message.chat.id)]['photo_url'] = src
-            a = bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
+            a = await bot.send_message(message.chat.id, 'Жалоба готова! Отправить?', reply_markup=upload_my_appeal1())
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         else:
-            a = bot.send_message(message.chat.id, 'Вы отправили два разных текста!',
+            a = await bot.send_message(message.chat.id, 'Вы отправили два разных текста!',
                                  reply_markup=back_to_menu_appeals())
             globalVar[str(message.chat.id)]['photo_url'] = 'error'
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
     except Exception:
-        if message.text != None:
+        if message.text is not None:
             if message.text.lower() == '/start':
-                error_func(message.chat.id, message.message_id)
+                await error_func(message.chat.id, message.message_id)
             else:
-                a = bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
+                a = await bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
                                      reply_markup=upload_my_appeal())
                 globalVar[str(message.chat.id)]['photo_url'] = 'error'
                 globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+                globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
                 globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
                 globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         else:
-            a = bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
+            a = await bot.send_message(message.chat.id, 'Вы отправили не фото! Хотите отправить фотографию по проблеме?',
                             reply_markup=upload_my_appeal())
             globalVar[str(message.chat.id)]['photo_url'] = 'error'
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_id_message)
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
 
 
-def send_appeal(id, bot_message_id):
+async def send_appeal(id, bot_message_id):
     s = requests.Session()
     payload = {"text": globalVar[str(id)]['appeal_text']}
     send_to = f'appeals-from-tg/{str(id)}/create-complaint'
@@ -600,87 +670,106 @@ def send_appeal(id, bot_message_id):
         s.post(f'{url}/{send_to}', data=payload, files=files)
     else:
         s.post(f'{url}/{send_to}', json=payload)
-    bot.edit_message_text('Ваша жалоба принята', id, bot_message_id, reply_markup=back_to_menu_appeals())
+    await bot.edit_message_text('Ваша жалоба принята', id, bot_message_id, reply_markup=back_to_menu_appeals())
     globalVar[str(id)]['appeal_text'] = ''
 
 
-def hot_water_update(message, bot_message_id, img):
-    if message.text != None:
+@dp.message_handler(state=State_list.waiting_hot_water, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def hot_water_update(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        id = data['id']
+        bot_message_id = data['bot_message_id']
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.finish()
+        await state.reset_state()
+    if message.text is not None:
         if message.text.lower() == '/start':
-            error_func(message.chat.id, message.message_id)
+            await error_func(message.chat.id, message.message_id)
         elif message.text.isdigit():
-            bot.edit_message_media(chat_id=message.chat.id, message_id=bot_message_id,
-                                   media=telebot.types.InputMediaPhoto(media=img,
-                                                                       caption='Введите показания счетчика *ГВС*:',
-                                                                       parse_mode="Markdown"))
+            await bot.edit_message_reply_markup(message.chat.id, message.message_id, reply_markup=None)
             logs = list()
             logs.append(str(int(message.text)))
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
-            a = bot.send_message(message.chat.id, 'Введите показания счетчика *ХВС*:', parse_mode="Markdown",
+            a = await bot.send_message(message.chat.id, 'Введите показания счетчика *ХВС*:', parse_mode="Markdown",
                                  reply_markup=back_to_menu_choose_meter())
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
-            bot.register_next_step_handler(a,cold_water_update, a.message_id, logs)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
+            async with state.proxy() as data:
+                data['id'] = message.chat.id
+                data['bot_message_id'] = a.message_id
+                data['logs'] = logs
+            await State_list.waiting_cold_water.set()
+
         else:
-            bot.edit_message_media(chat_id=message.chat.id, message_id=bot_message_id,
-                                   media=telebot.types.InputMediaPhoto(media=img,
-                                                                       caption='Введите показания счетчика *ГВС*:',
-                                                                       parse_mode="Markdown"))
-            a = bot.send_message(message.chat.id,
+            await bot.edit_message_reply_markup(message.chat.id, message.message_id, reply_markup=None)
+            a = await bot.send_message(message.chat.id,
                                  'Пожалуйста, укажите показания счётчиков целым числом',
                                  reply_markup=back_to_menu_choose_meter1())
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
     else:
-        bot.edit_message_media(chat_id=message.chat.id, message_id=bot_message_id,
-                               media=telebot.types.InputMediaPhoto(media=img,
-                                                                   caption='Введите показания счетчика *ГВС*:',
-                                                                   parse_mode="Markdown"))
-        a = bot.send_message(message.chat.id,
+        await bot.edit_message_reply_markup(message.chat.id, message.message_id, reply_markup=None)
+        a = await bot.send_message(message.chat.id,
                              'Пожалуйста, укажите показания счётчиков текстовым сообщением без вложений',
                          reply_markup=back_to_menu_choose_meter1())
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
 
-def cold_water_update(message, bot_message_id, logs):
-    if message.text != None:
+@dp.message_handler(state=State_list.waiting_cold_water, content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def cold_water_update(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        id = data['id']
+        bot_message_id = data['bot_message_id']
+        logs = data['logs']
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.finish()
+        await state.reset_state()
+    if message.text is not None:
         if message.text.lower() == '/start':
-            error_func(message.chat.id, message.message_id)
+            await error_func(message.chat.id, message.message_id)
         elif message.text.isdigit():
-            bot.edit_message_text('Введите показания счетчика *ХВС*:', message.chat.id, bot_message_id,
+            await bot.edit_message_text('Введите показания счетчика *ХВС*:', message.chat.id, bot_message_id,
                                   parse_mode="Markdown")
             logs.append(str(int(message.text)))
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
-            a = bot.send_message(message.chat.id, 'Показания готовы. Отправить?', parse_mode="Markdown",
+            a = await bot.send_message(message.chat.id, 'Показания готовы. Отправить?', parse_mode="Markdown",
                                  reply_markup=send_meter())
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
             globalVar[str(message.chat.id)]['meter'] = logs
         else:
-            bot.edit_message_text('Введите показания счетчика *ХВС*:', message.chat.id, bot_message_id,
+            await bot.edit_message_text('Введите показания счетчика *ХВС*:', message.chat.id, bot_message_id,
                                   parse_mode="Markdown")
-            a = bot.send_message(message.chat.id,
+            a = await bot.send_message(message.chat.id,
                                  'Пожалуйста, укажите показания счётчиков целым числом',
                                  reply_markup=back_to_menu_choose_meter1())
             globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
             globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
             globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+            globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
     else:
-        bot.edit_message_text('Введите показания счетчика *ХВС*', message.chat.id, bot_message_id,
+        await bot.edit_message_text('Введите показания счетчика *ХВС*', message.chat.id, bot_message_id,
                               parse_mode="Markdown")
-        a = bot.send_message(message.chat.id,
+        a = await bot.send_message(message.chat.id,
                              'Пожалуйста, укажите показания счётчиков текстовым сообщением без вложений',
                          reply_markup=back_to_menu_choose_meter1())
         globalVar[str(message.chat.id)]['to_delete'].append(message.message_id)
         globalVar[str(message.chat.id)]['to_delete'].append(bot_message_id)
         globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+        globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
 
-def send_meter1(id):
+async def send_meter1(id):
     s = requests.Session()
     payload = {"hotWater": globalVar[str(id)]['meter'][0],"coldWater": globalVar[str(id)]['meter'][1]}
     url = 'http://renat-hamatov.ru'
@@ -688,17 +777,18 @@ def send_meter1(id):
     r = s.post(f'{url}/{send_to}', json=payload)
     try:
         if json.loads(r.text)['user']:
-            bot.delete_message(id, globalVar[str(id)]['message_id'])
-            a = bot.send_message(id, 'Показания успешно обновлены!',
+            await bot.delete_message(id, globalVar[str(id)]['message_id'])
+            a = await bot.send_message(id, 'Показания успешно обновлены!',
                              reply_markup=back_to_menu_choose_meter())
             globalVar[str(id)]['message_id'] = str(a.message_id)
     except Exception:
         text = json.loads(r.text)['message']
-        bot.delete_message(id, globalVar[str(id)]['message_id'])
-        a = bot.send_message(id, f'{text}', reply_markup=back_to_menu_choose_meter1())
+        await bot.delete_message(id, globalVar[str(id)]['message_id'])
+        a = await bot.send_message(id, f'{text}', reply_markup=back_to_menu_choose_meter1())
         globalVar[str(id)]['message_id'] = str(a.message_id)
 
-def my_appeals(id):
+
+async def my_appeals(id):
     s = requests.Session()
     send_to = f'appeals-from-tg/{str(id)}/my'
     r = s.get(f'{url}/{send_to}')
@@ -744,31 +834,31 @@ def my_appeals(id):
             if len(appeals)-1 == 0:
                 if img != 'not image':
                     img = f'{url}{img}'
-                    bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-                    a = bot.send_photo(photo=img, caption=f'{appeal_id + 1}/{len(appeals)}\n'
+                    await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                    a = await bot.send_photo(photo=img, caption=f'{appeal_id + 1}/{len(appeals)}\n'
                                         f'Дата: *{date}*\n'
                                         f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*',
                                         parse_mode="Markdown",
                                         chat_id=id, reply_markup=back_to_menu_appeals1())
                 else:
-                    bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-                    a = bot.send_message(id, f'{appeal_id + 1}/{len(appeals)}\n'
+                    await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                    a = await bot.send_message(id, f'{appeal_id + 1}/{len(appeals)}\n'
                                                 f'Дата: *{date}*\n'
                                                 f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*',
                                             reply_markup=back_to_menu_appeals1(), parse_mode="Markdown")
             else:
                 if img != 'not image':
                     img = f'{url}{img}'
-                    bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-                    a = bot.send_photo(photo=img, caption=f'{appeal_id + 1}/{len(appeals)}\n'
+                    await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                    a = await bot.send_photo(photo=img, caption=f'{appeal_id + 1}/{len(appeals)}\n'
                                                     f'Дата: *{date}*\n'
                                                     f'Статус: *{status}*{rejectReason}\n'
                                                     f'\nТекст обращения:\n*{text}*',
                                                     parse_mode="Markdown",
                                                     chat_id=id, reply_markup=choose_appeal(last, first))
                 else:
-                    bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-                    a = bot.send_message(id, f'{appeal_id + 1}/{len(appeals)}\n'
+                    await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+                    a = await bot.send_message(id, f'{appeal_id + 1}/{len(appeals)}\n'
                                                 f'Дата: *{date}*\n'
                                                 f'Статус: *{status}*{rejectReason}\n\nТекст обращения:\n*{text}*',
                                                 reply_markup=choose_appeal(last, first), parse_mode="Markdown")
@@ -777,16 +867,16 @@ def my_appeals(id):
         except Exception:
             None
     else:
-        deleting(id)
-        bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-        b = bot.send_message(id, 'Вы не отправляли ни одной жалобы')
-        a = bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_appeals1())
+        await deleting(id)
+        await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+        b = await bot.send_message(id, 'Вы не отправляли ни одной жалобы')
+        a = await bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_appeals1())
         globalVar[str(id)]['to_delete'].append(b.message_id)
-    if a!= None:
+    if a is not None:
         globalVar[str(id)]['message_id'] = str(a.message_id)
 
 
-def my_statement(id):
+async def my_statement(id):
     s = requests.Session()
     send_to = f'appeals-from-tg/{str(id)}/my'
     r = s.get(f'{url}/{send_to}')
@@ -828,15 +918,15 @@ def my_statement(id):
             rejectReason = t['rejectReason']
             rejectReason = f'\n\nПричина отклонения:\n*{rejectReason}*'
         if len(appeals)-1 == 0:
-            bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-            a = bot.send_message(text=f'{appeal_id + 1}/{len(appeals)}\n'
+            await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+            a = await bot.send_message(text=f'{appeal_id + 1}/{len(appeals)}\n'
                                                         f'Дата: *{date}*\n'
                                                         f'Статус: *{status}*{rejectReason}\n\nСправка:\n*{text}*',
                                     parse_mode="Markdown",
                                     chat_id=id, reply_markup=back_to_menu_statements())
         else:
-            bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-            a = bot.send_message(id, f'{appeal_id + 1}/{len(appeals)}\n'
+            await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+            a = await bot.send_message(id, f'{appeal_id + 1}/{len(appeals)}\n'
                                             f'Дата: *{date}*\n'
                                             f'Статус: *{status}*{rejectReason}\n\nСправка:\n*{text}*',
                                         reply_markup=choose_statement(last,first), parse_mode="Markdown")
@@ -844,40 +934,41 @@ def my_statement(id):
         #Если в предыдущем есть фото, то пусть edit_message_media, иначе edit_message_text"""
 
     else:
-        deleting(id)
-        bot.delete_message(id, int(globalVar[str(id)]['message_id']))
-        b = bot.send_message(id, 'Вы не заказывали ни одной справки')
-        a = bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_statements())
+        await deleting(id)
+        await bot.delete_message(id, int(globalVar[str(id)]['message_id']))
+        b = await bot.send_message(id, 'Вы не заказывали ни одной справки')
+        a = await bot.send_message(id, 'Выберите действие', reply_markup=back_to_menu_statements())
         globalVar[str(id)]['to_delete'].append(b.message_id)
-    if a!= None:
+    if a is not None:
         globalVar[str(id)]['message_id'] = str(a.message_id)
 
 
-def error_func(id,bot_message_id):
+async def error_func(id,bot_message_id):
     if str(id) not in globalVar:
         globalVar[str(id)] = {}
         globalVar[str(id)]['to_delete'] = list()
         globalVar[str(id)]['topic'] = None
         globalVar[str(id)]['error_messages'] = None
         globalVar[str(id)]['message_id'] = ''
+        globalVar[str(id)]['message_id_time_send'] = ''
         globalVar[str(id)]['move'] = '0'
         globalVar[str(id)]['appeal_text'] = ''
         globalVar[str(id)]['photo_url'] = ''
         globalVar[str(id)]['meter'] = list()
         globalVar[str(id)]['help_message'] = list()
     try:
-        bot.delete_message(id, int(globalVar[str(id)]['error_messages']))
+        await bot.delete_message(id, int(globalVar[str(id)]['error_messages']))
     except Exception:
         None
-    bot.delete_message(id, bot_message_id)
-    a = bot.send_message(id, 'Воспользуйтесь предложенными кнопками. \n'
+    await bot.delete_message(id, bot_message_id)
+    a = await bot.send_message(id, 'Воспользуйтесь предложенными кнопками. \n'
                                       'Если кнопки исчезли, введите команду /start\n'
                              'Если у вас трудности с ботом, введите команду /help')
     globalVar[str(id)]['error_messages'] = a.message_id
 
 
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
+@dp.message_handler(commands=['start'])
+async def send_welcome(message: types.Message):
     global globalVar
     print(globalVar)
 
@@ -888,62 +979,65 @@ def send_welcome(message):
         globalVar[str(message.chat.id)]['topic'] = None
         globalVar[str(message.chat.id)]['error_messages'] = None
         globalVar[str(message.chat.id)]['message_id'] = ''
+        globalVar[str(message.chat.id)]['message_id_time_send'] = ''
         globalVar[str(message.chat.id)]['move'] = '0'
         globalVar[str(message.chat.id)]['appeal_text'] = ''
         globalVar[str(message.chat.id)]['photo_url'] = ''
         globalVar[str(message.chat.id)]['meter'] = list()
         globalVar[str(message.chat.id)]['help_message'] = list()
     if globalVar[str(message.chat.id)]['message_id'] == '':
-        bot.send_message(message.chat.id, 'Привет!\nЭтот бот сделан специально для жильцов домов УК Профессионал!\n\n'
+        await bot.send_message(message.chat.id, 'Привет!\nЭтот бот сделан специально для жильцов домов УК Профессионал!\n\n'
                              'С его помощью вы можете оставить жалобу, поменять показания счётчиков'
                              ' или заказать справку. \nЕсли вы в чем-то запутались или хотите узнать подробней'
-                             ' о боте напишите /help\n\nС уважением, создатели проекта.', reply_markup=understand())
+                             ' о боте напишите /help\n\nС уважением, создатели проекта.')
     globalVar[str(message.chat.id)]['move'] = '0'
     globalVar[str(message.chat.id)]['appeal_text'] = ''
     globalVar[str(message.chat.id)]['meter'] = list()
-    deleting(message.chat.id)
-    bot.delete_message(message.chat.id, message.message_id)
+    await deleting(message.chat.id)
+    await bot.delete_message(message.chat.id, message.message_id)
     try:
-        bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['message_id']))
+        await bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['message_id']))
     except Exception:
         None
 
     try:
-        bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
+        await bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
     except Exception:
         None
 
     if globalVar[str(message.chat.id)]['photo_url'] != '' and globalVar[str(message.chat.id)]['photo_url'] != 'error':
         os.remove(globalVar[str(message.chat.id)]['photo_url'])
+        globalVar[str(message.chat.id)]['photo_url'] = ''
 
     if check(message.chat.id):
         s = requests.Session()
         send_to = f'telegram/user/{str(message.chat.id)}'
         r = s.get(f'{url}/{send_to}')
         firstname = json.loads(r.text)['user']['fullname'].split()[1].capitalize()
-        a = bot.send_message(message.chat.id, f"С возвращением, *{firstname}*!\nВыберите действие:",
+        a = await bot.send_message(message.chat.id, f"С возвращением, *{firstname}*!\nВыберите действие:",
                              reply_markup=menu_authorized(), parse_mode="Markdown")
     else:
-        a = bot.send_message(message.chat.id, "Здравствуйте!\nВыберите действие:", reply_markup=menu())
+        a = await bot.send_message(message.chat.id, "Здравствуйте!\nВыберите действие:", reply_markup=menu())
 
     if globalVar[str(message.chat.id)]['topic'] != None:
-        bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['topic']))
+        await bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['topic']))
         globalVar[str(message.chat.id)]['topic'] = None
     globalVar[str(message.chat.id)]['message_id'] = str(a.message_id)
+    globalVar[str(message.chat.id)]['message_id_time_send'] = str(a.date)
 
 
-@bot.message_handler(commands=['help'])
-def help_command(message):
-    bot.delete_message(message.chat.id, message.message_id)
+@dp.message_handler(commands=['help'])
+async def help_command(message: types.Message):
+    await bot.delete_message(message.chat.id, message.message_id)
     try:
-        bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
+        await bot.delete_message(message.chat.id, int(globalVar[str(message.chat.id)]['error_messages']))
     except Exception:
         None
     if len(globalVar[str(message.chat.id)]['help_message']) != 0:
         for id in globalVar[str(message.chat.id)]['help_message']:
-            bot.delete_message(message.chat.id, id)
+            await bot.delete_message(message.chat.id, id)
     globalVar[str(message.chat.id)]['help_message'] = list()
-    a = bot.send_media_group(message.chat.id, media=[(InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/0.jpg?raw=true', caption='Стартовое меню.\n'
+    a = await bot.send_media_group(message.chat.id, media=[(InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/0.jpg?raw=true', caption='Стартовое меню.\n'
                                                                                                                                                                'Чтобы открыть доступ к панеле пользователя вам необходимо авторизоваться.')),
                                                  (InputMediaPhoto(media='https://github.com/NoName2201/tg_bot/blob/master/photos_help/1.jpg?raw=true', caption='Вход в аккаунт.\n'
                                                                                                                                                                'Вам необходимо указать в два сообщения вашу почту и пароль')),
@@ -969,53 +1063,57 @@ def help_command(message):
 
     for id in a:
         globalVar[str(message.chat.id)]['help_message'].append(id.message_id)
-    a = bot.send_message(message.chat.id, 'Если у вас остались вопросы в работе бота, напишите нам:\nsupport@prof-uk.ru', reply_markup=understand1())
+    a = await bot.send_message(message.chat.id, 'Если у вас остались вопросы в работе бота, напишите нам:\nsupport@prof-uk.ru', reply_markup=understand1())
     globalVar[str(message.chat.id)]['help_message'].append(a.message_id)
 
 
-@bot.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
-def error(message):
-    error_func(message.chat.id, message.message_id)
+@dp.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
+async def error(message: types.Message):
+    await error_func(message.chat.id, message.message_id)
 
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
+@dp.callback_query_handler(lambda c: c.data, state='*')
+async def callback_query(call: types.CallbackQuery, state: FSMContext):
     try:
         global url, globalVar
         cmcd = call.message.chat.id
         cmmi = call.message.message_id
         print(cmcd, call.data)
+        print(globalVar)
         try:
-            bot.delete_message(cmcd, int(globalVar[str(cmcd)]['error_messages']))
+            await bot.delete_message(cmcd, int(globalVar[str(cmcd)]['error_messages']))
         except Exception:
             None
 
         if call.data == "log_in":
-            a = bot.edit_message_text("Введите адрес электронной почты для авторизации:",
+            a = await bot.edit_message_text("Введите адрес электронной почты для авторизации:",
                                   cmcd, cmmi, reply_markup=back3())
-            deleting(cmcd)
-            bot.register_next_step_handler(a, logging_in, cmmi)
+            await deleting(cmcd)
+            async with state.proxy() as data:
+                data['id'] = cmcd
+                data['bot_message_id'] = a.message_id
+            await State_list.waiting_login_email.set()
 
         elif call.data == 'registration':
-            bot.delete_message(cmcd, cmmi)
-            a = bot.send_message(cmcd, f'Регистрация проходит на сайте:\nhttps://prof-uk.ru/signup', reply_markup=back3())
+            await bot.delete_message(cmcd, cmmi)
+            a = await bot.send_message(cmcd, f'Регистрация проходит на сайте:\nhttps://prof-uk.ru/signup', reply_markup=back3())
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
         elif call.data == 'appeals':
-            bot.delete_message(cmcd, cmmi)
-            a = bot.send_message(cmcd, '*Жалобы*', parse_mode="Markdown")
-            b = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_appeals())
-            deleting(cmcd)
+            await bot.delete_message(cmcd, cmmi)
+            a = await bot.send_message(cmcd, '*Жалобы*', parse_mode="Markdown")
+            b = await bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_appeals())
+            await deleting(cmcd)
             globalVar[str(cmcd)]['topic'] = str(a.message_id)
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
 
         elif call.data == 'meter':
-            bot.delete_message(cmcd, cmmi)
-            a = bot.send_message(cmcd, '*Счётчики*', parse_mode="Markdown")
+            await bot.delete_message(cmcd, cmmi)
+            a = await bot.send_message(cmcd, '*Счётчики*', parse_mode="Markdown")
             s = requests.Session()
             send_to = f'telegram/user/{cmcd}'
             r = s.get(f'{url}/{send_to}')
-            deleting(cmcd)
+            await deleting(cmcd)
             if json.loads(r.text)['user']['meterReadings']:
                 hotWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['hotWaterSupply']
                 coldWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['coldWaterSupply']
@@ -1025,13 +1123,13 @@ def callback_query(call):
                 month = int(str(datetime.date.today()).split('-')[1])
                 if today > 19 and today < 26\
                         and int(json.loads(r.text)['user']['meterReadings'][-1]['time'].split('.')[1]) != month:
-                    b = bot.send_message(cmcd,f'Ваши последние показания счётчиков:\n'
+                    b = await bot.send_message(cmcd,f'Ваши последние показания счётчиков:\n'
                                               f'\nДата обновления: *{date}*\n'
                                               f'\nХолодная вода: *{coldWaterSupply}*'
                                               f'\nГорячая вода: *{hotWaterSupply}*',
                                          parse_mode='Markdown', reply_markup=menu_meter())
                 elif today < 20:
-                    b = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                    b = await bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
                                                f'\nДата обновления: *{date}*\n'
                                                f'\nХолодная вода: *{coldWaterSupply}*'
                                                f'\nГорячая вода: *{hotWaterSupply}*'
@@ -1039,11 +1137,11 @@ def callback_query(call):
                                                f' в период с 20 по 25 числа месяца',
                                          parse_mode='Markdown')
                     globalVar[str(cmcd)]['to_delete'].append(b.message_id)
-                    b = bot.send_message(cmcd, 'Если вы допустили ошибку при отправке данных,'
+                    b = await bot.send_message(cmcd, 'Если вы допустили ошибку при отправке данных,'
                                                ' напишите нам в разделе *"Жалобы"*', parse_mode='Markdown',
                                          reply_markup=back2())
                 else:
-                    b = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                    b = await bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
                                                f'\nДата обновления: *{date}*\n'
                                                f'\nХолодная вода: *{coldWaterSupply}*'
                                                f'\nГорячая вода: *{hotWaterSupply}*'
@@ -1051,98 +1149,111 @@ def callback_query(call):
                                                f' в период с 20 по 25 числа месяца',
                                          parse_mode='Markdown')
                     globalVar[str(cmcd)]['to_delete'].append(b.message_id)
-                    b = bot.send_message(cmcd, 'Если вы допустили ошибку при отправке данных,'
+                    b = await bot.send_message(cmcd, 'Если вы допустили ошибку при отправке данных,'
                                                ' напишите нам в разделе *"Жалобы"*', parse_mode='Markdown',
                                          reply_markup=back2())
             else:
                 today = int(str(datetime.date.today()).split('-')[2])
                 if today > 19 and today < 26:
-                    b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
+                    b = await bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
                                      reply_markup=menu_meter())
                 elif today < 20:
-                    b = bot.send_message(cmcd,
+                    b = await bot.send_message(cmcd,
                                          'У вас отстутсвуют данные счетчиков.'
                                          ' Вы сможете их указать только в период с 20 по 25 числа месяца',
                                          reply_markup=back2())
                 else:
-                    b = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков.'
+                    b = await bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков.'
                                                ' Вы сможете их указать только в следующем месяце',
                                          reply_markup=back2())
             globalVar[str(cmcd)]['topic'] = str(a.message_id)
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
 
         elif call.data == 'create__appeal':
-            deleting(cmcd)
-            a = bot.edit_message_text('Опишите возникшую проблему:', cmcd, cmmi, reply_markup=back_to_menu_appeals())
-            bot.register_next_step_handler(a, create_appeal, cmmi)
+            await deleting(cmcd)
+            a = await bot.edit_message_text('Опишите возникшую проблему:', cmcd, cmmi, reply_markup=back_to_menu_appeals())
+            async with state.proxy() as data:
+                data['id'] = cmcd
+                data['bot_message_id'] = a.message_id
+            await State_list.waiting_create_appeal.set()
 
         elif call.data == 'send_text':
             text = 'Опишите возникшую проблему:'
-            a = bot.edit_message_text(text, cmcd, cmmi, reply_markup=back_to_menu_appeals())
+            a = await bot.edit_message_text(text, cmcd, cmmi, reply_markup=back_to_menu_appeals())
             b = globalVar[str(cmcd)]['to_delete'].pop()
             c = globalVar[str(cmcd)]['to_delete'].pop()
-            bot.delete_message(cmcd, b)
-            bot.delete_message(cmcd, c)
-            bot.register_next_step_handler(a, send_text, cmmi, text)
+            await bot.delete_message(cmcd, b)
+            await bot.delete_message(cmcd, c)
+            async with state.proxy() as data:
+                data['id'] = cmcd
+                data['bot_message_id'] = a.message_id
+                data['text'] = text
+            await State_list.waiting_appeal_text.set()
 
         elif call.data == 'send_photo':
-            a = bot.edit_message_text('Пришлите фотографию возникшей проблемы:', cmcd, cmmi,
+            a = await bot.edit_message_text('Пришлите фотографию возникшей проблемы:', cmcd, cmmi,
                                   reply_markup=back_to_menu_appeals2())
             if globalVar[str(cmcd)]['photo_url'] == 'error':
                 b = globalVar[str(cmcd)]['to_delete'].pop()
                 c = globalVar[str(cmcd)]['to_delete'].pop()
-                bot.delete_message(cmcd, b)
-                bot.delete_message(cmcd, c)
-            bot.register_next_step_handler(a, send_photo, cmmi)
+                await bot.delete_message(cmcd, b)
+                await bot.delete_message(cmcd, c)
+            async with state.proxy() as data:
+                data['id'] = cmcd
+                data['bot_message_id'] = a.message_id
+            await State_list.waiting_appeal_photo.set()
 
         elif call.data == 'upload_my_appeal':
-            a = bot.edit_message_text('Хотите отправить фотографию по проблеме?', cmcd, cmmi,
+            a = await bot.edit_message_text('Хотите отправить фотографию по проблеме?', cmcd, cmmi,
                                       reply_markup=upload_my_appeal())
 
         elif call.data == 'send_appeal':
-            send_appeal(cmcd, cmmi)
+            await send_appeal(cmcd, cmmi)
 
         elif call.data == 'my__appeals':
-            bot.edit_message_text('Ваши жалобы:', cmcd, cmmi)
-            my_appeals(cmcd)
+            await bot.edit_message_text('Ваши жалобы:', cmcd, cmmi)
+            await my_appeals(cmcd)
 
         elif call.data == 'reload_my_appeal':
-            my_appeals(cmcd)
+            await my_appeals(cmcd)
 
         elif call.data == 'choose_appeal_back':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) - 1)
-            my_appeals(cmcd)
+            await my_appeals(cmcd)
 
         elif call.data == 'choose_appeal_forward':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) + 1)
-            my_appeals(cmcd)
+            await my_appeals(cmcd)
 
         elif call.data == 'update_meter':
-            deleting(cmcd)
-            bot.delete_message(cmcd, int(globalVar[str(cmcd)]['message_id']))
+            await deleting(cmcd)
+            await bot.delete_message(cmcd, int(globalVar[str(cmcd)]['message_id']))
             with open('uploads/file_for_meter.jpg', 'rb') as f:
                 img = f.read()
-            a = bot.send_photo(photo=img, caption='Введите показания счетчика *ГВС*\n(Только черные цифры до запятой):',
+            a = await bot.send_photo(photo=img, caption='Введите показания счетчика *ГВС*\n(Только черные цифры до запятой):',
                                parse_mode="Markdown",
                                chat_id=cmcd, reply_markup=back_to_menu_choose_meter())
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
-            bot.register_next_step_handler(a, hot_water_update, a.message_id, img)
+            async with state.proxy() as data:
+                data['id'] = cmcd
+                data['bot_message_id'] = a.message_id
+            await State_list.waiting_hot_water.set()
 
         elif call.data == 'send_meter':
-            send_meter1(cmcd)
+            await send_meter1(cmcd)
 
         elif call.data == 'statements':
-            bot.delete_message(cmcd, cmmi)
+            await bot.delete_message(cmcd, cmmi)
             globalVar[str(cmcd)]['move'] = str(0)
-            deleting(cmcd)
+            await deleting(cmcd)
             if globalVar[str(cmcd)]['topic'] == None:
-                a = bot.send_message(cmcd, '*Справки*', parse_mode="Markdown")
+                a = await bot.send_message(cmcd, '*Справки*', parse_mode="Markdown")
                 globalVar[str(cmcd)]['topic'] = str(a.message_id)
-            b = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_statements())
+            b = await bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_statements())
             globalVar[str(cmcd)]['message_id'] = str(b.message_id)
 
         elif call.data == 'create__statement__question':
-            bot.delete_message(cmcd, cmmi)
+            await bot.delete_message(cmcd, cmmi)
 
             s = requests.Session()
             send_to = f'telegram/user/{cmcd}'
@@ -1168,7 +1279,7 @@ def callback_query(call):
                 public_part = public_part.split('-')
                 phone = re.sub("\d", "#", mask_part) + '-' + public_part[1] + public_part[2]
 
-            a = bot.send_message(cmcd, f'Обращаем ваше внимание, что все документы формируются на основе данных,'
+            a = await bot.send_message(cmcd, f'Обращаем ваше внимание, что все документы формируются на основе данных,'
                                        f' указанных при регистрации.\nВо избежание ошибок, проверьте ваши данные.\n\n'
                                        f'Заказчик: *{fullname}*\n'
                                        f'Телефон: *{phone}*\n'
@@ -1179,85 +1290,90 @@ def callback_query(call):
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
         elif call.data == 'create__statement__confirmed':
-            create_statement_now(cmcd, cmmi)
+            await create_statement_now(cmcd, cmmi)
 
         elif call.data == 'choose_statement_to_create_forward':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) + 3)
-            create_statement_now(cmcd, cmmi)
+            await create_statement_now(cmcd, cmmi)
 
         elif call.data == 'choose_statement_to_create_back':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) - 3)
-            create_statement_now(cmcd, cmmi)
+            await create_statement_now(cmcd, cmmi)
 
         elif call.data == 'my__statements':
-            bot.edit_message_text('Ваши справки:', cmcd, cmmi)
-            my_statement(cmcd)
+            await bot.edit_message_text('Ваши справки:', cmcd, cmmi)
+            await my_statement(cmcd)
 
         elif call.data == 'reload_my_statement':
-            my_statement(cmcd)
+            await my_statement(cmcd)
 
         elif call.data == 'choose_statement_back':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) - 1)
-            my_statement(cmcd)
+            await my_statement(cmcd)
 
         elif call.data == 'choose_statement_forward':
             globalVar[str(cmcd)]['move'] = str(int(globalVar[str(cmcd)]['move']) + 1)
-            my_statement(cmcd)
+            await my_statement(cmcd)
 
 
         elif call.data[:6] == 'order_':
             statement_id = int(call.data[6:])
             if cmmi in globalVar[str(cmcd)]['to_delete']:
                 globalVar[str(cmcd)]['to_delete'].remove(cmmi)
-                bot.delete_message(cmcd, int(globalVar[str(cmcd)]['message_id']))
+                await bot.delete_message(cmcd, int(globalVar[str(cmcd)]['message_id']))
                 globalVar[str(cmcd)]['message_id'] = str(cmmi)
-            deleting(cmcd)
+            await deleting(cmcd)
             globalVar[str(cmcd)]['to_delete'].append(int(globalVar[str(cmcd)]['message_id']))
             s = requests.Session()
             send_to = f'houses-from-tg/{cmcd}/statements'
             r = s.get(f'{url}/{send_to}')
             statements = json.loads(r.text)['statements']
-            statement = statements[statement_id]['name']
             value = statements[statement_id]['value']
-            bot.edit_message_text(f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}', cmcd, cmmi)
-            a = bot.send_message(cmcd, 'Вы хотите заказать эту справку?', reply_markup=order_statement(value))
+            await bot.edit_message_text(f'{statement_id + 1}/{len(statements)}\n{statements[statement_id]["name"]}', cmcd, cmmi)
+            a = await bot.send_message(cmcd, 'Вы хотите заказать эту справку?', reply_markup=order_statement(value))
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
         elif call.data[:15] == 'send_statement_':
             s = requests.Session()
             payload = {'value': str(call.data[15:])}
             send_to = f'appeals-from-tg/{cmcd}/order-statement'
-            r = s.post(f'{url}/{send_to}', json=payload)
-            bot.edit_message_text('Справка успешно заказана!', cmcd, cmmi, reply_markup=back_to_menu_statements())
+            s.post(f'{url}/{send_to}', json=payload)
+            await bot.edit_message_text('Справка успешно заказана!', cmcd, cmmi, reply_markup=back_to_menu_statements())
 
 
         elif call.data == 'exit':
-            bot.edit_message_text('Вы уверены, что хотите выйти из аккаунта❓', cmcd, cmmi, reply_markup=exit_confirm())
+            await bot.edit_message_text('Вы уверены, что хотите выйти из аккаунта❓', cmcd, cmmi, reply_markup=exit_confirm())
 
         elif call.data == 'exit_confirmed':
             exit(call.message.chat.id)
-            deleting(cmcd)
-            bot.edit_message_text('Вы вышли из аккаунта❗', cmcd, cmmi, reply_markup=menu())
+            await deleting(cmcd)
+            await bot.edit_message_text('Вы вышли из аккаунта❗', cmcd, cmmi, reply_markup=menu())
 
         elif call.data == 'back_to_menu':
-            bot.clear_step_handler_by_chat_id(cmcd)  # Может это вызывает ошибку при входе с двух устройств одновременно
-            deleting(cmcd)
-            bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu())
+            current_state = await state.get_state()
+            if current_state is not None:
+                await state.finish()
+                await state.reset_state()
+            await deleting(cmcd)
+            await bot.edit_message_text('Выберите действие:', cmcd, cmmi, reply_markup=menu())
 
         elif call.data == 'back_to_menu_authorized':
             try:
-                bot.delete_message(cmcd, int(globalVar[str(cmcd)]['topic']))
+                await bot.delete_message(cmcd, int(globalVar[str(cmcd)]['topic']))
             except Exception:
                 None
             globalVar[str(cmcd)]['topic'] = None
-            bot.clear_step_handler_by_chat_id(cmcd)
-            deleting(cmcd)
-            bot.delete_message(cmcd, cmmi)
+            current_state = await state.get_state()
+            if current_state is not None:
+                await state.finish()
+                await state.reset_state()
+            await deleting(cmcd)
+            await bot.delete_message(cmcd, cmmi)
             s = requests.Session()
             send_to = f'telegram/user/{str(cmcd)}'
             r = s.get(f'{url}/{send_to}')
             firstname = json.loads(r.text)['user']['fullname'].split()[1].capitalize()
-            a = bot.send_message(cmcd, f"Приветствуем, *{firstname}*!\nВыберите действие:",
+            a = await bot.send_message(cmcd, f"Приветствуем, *{firstname}*!\nВыберите действие:",
                                      reply_markup=menu_authorized(), parse_mode="Markdown")
             globalVar[str(cmcd)]['message_id'] = str(a.message_id)
 
@@ -1268,20 +1384,26 @@ def callback_query(call):
             globalVar[str(cmcd)]['appeal_text'] = ''
             globalVar[str(cmcd)]['photo_url'] = ''
             globalVar[str(cmcd)]['move'] = str(0)
-            bot.clear_step_handler_by_chat_id(cmcd)
-            deleting(cmcd)
-            bot.delete_message(cmcd, globalVar[str(cmcd)]['message_id'])
-            a = bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_appeals())
+            current_state = await state.get_state()
+            if current_state is not None:
+                await state.finish()
+                await state.reset_state()
+            await deleting(cmcd)
+            await bot.delete_message(cmcd, globalVar[str(cmcd)]['message_id'])
+            a = await bot.send_message(cmcd, 'Выберите действие:', reply_markup=menu_appeals())
             (globalVar[str(cmcd)]['message_id']) = str(a.message_id)
 
         elif call.data == 'back_to_menu_choose_meter':
-            bot.clear_step_handler_by_chat_id(cmcd)
-            deleting(cmcd)
-            bot.delete_message(cmcd, globalVar[str(cmcd)]['message_id'])
+            current_state = await state.get_state()
+            if current_state is not None:
+                await state.finish()
+                await state.reset_state()
+            await deleting(cmcd)
+            await bot.delete_message(cmcd, globalVar[str(cmcd)]['message_id'])
             s = requests.Session()
             send_to = f'telegram/user/{cmcd}'
             r = s.get(f'{url}/{send_to}')
-            deleting(cmcd)
+            await deleting(cmcd)
             if json.loads(r.text)['user']['meterReadings']:
                 hotWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['hotWaterSupply']
                 coldWaterSupply = json.loads(r.text)['user']['meterReadings'][-1]['coldWaterSupply']
@@ -1291,13 +1413,13 @@ def callback_query(call):
                 date = (json.loads(r.text)['user']['meterReadings'][-1]['time'])
                 if today > 19 and today < 26\
                         and int(json.loads(r.text)['user']['meterReadings'][-1]['time'].split('.')[1]) != month:
-                    a = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                    a = await bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
                                             f'\nДата обновления: *{date}*\n'
                                             f'\nХолодная вода: *{coldWaterSupply}*'
                                             f'\nГорячая вода: *{hotWaterSupply}*',
                                         parse_mode='Markdown', reply_markup=menu_meter())
                 else:
-                    a = bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
+                    a = await bot.send_message(cmcd, f'Ваши последние показания счётчиков:\n'
                                                f'\nДата обновления: *{date}*\n'
                                                f'\nХолодная вода: *{coldWaterSupply}*'
                                                f'\nГорячая вода: *{hotWaterSupply}*'
@@ -1305,36 +1427,62 @@ def callback_query(call):
                                                f' в период с 20 по 25 числа месяца',
                                          parse_mode='Markdown')
                     globalVar[str(cmcd)]['to_delete'].append(a.message_id)
-                    a = bot.send_message(cmcd,
+                    a = await bot.send_message(cmcd,
                                          'Если вы допустили ошибку при отправке данных,'
                                          ' напишите нам в разделе *"Жалобы"*',
                                          parse_mode='Markdown', reply_markup=back2())
             else:
-                a = bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
+                a = await bot.send_message(cmcd, 'У вас отстутсвуют данные счетчиков. Хотите указать?',
                                      reply_markup=menu_meter())
             (globalVar[str(cmcd)]['message_id']) = str(a.message_id)
             globalVar[str(cmcd)]['meter'] = list()
 
         elif call.data == 'delete_notification':
-            bot.delete_message(cmcd, cmmi)
+            await bot.delete_message(cmcd, cmmi)
 
         elif call.data == 'delete_notification1':
             for id in globalVar[str(cmcd)]['help_message']:
-                bot.delete_message(cmcd, id)
+                await bot.delete_message(cmcd, id)
             globalVar[str(cmcd)]['help_message'] = list()
 
-
-        bot.answer_callback_query(call.id)
+        await bot.answer_callback_query(call.id)
 
     except Exception as e:
         print(e)
         pass
 
 
+async def check_for_editing_messages():
+    for i in globalVar:
+        mes = globalVar[str(i)]['message_id_time_send']
+        if mes != '':
+            d1 = datetime.datetime.strptime(mes, "%Y-%m-%d %H:%M:%S")
+            d2 = datetime.datetime.now()
+            current_state = dp.current_state(chat=int(i))
+            if (d2 - d1).seconds >= 1200 and await current_state.get_state() is not None:
+                await current_state.finish()
+                await current_state.reset_state()
+                await deleting(int(i))
+                if globalVar[str(i)]['topic'] is not None:
+                    await bot.delete_message(int(i), int(globalVar[str(i)]['topic']))
+                    globalVar[str(i)]['topic'] = None
+                await bot.edit_message_text('Время на ввод данных истекло.\nДля повторного старта бота введите /start',
+                                            int(i), int(globalVar[str(i)]['message_id']))
+                globalVar[str(i)]['message_id'] = None
+                globalVar[str(i)]['message_id_time_send'] = ''
+            if (d2 - d1).seconds >= 169200:
+                await bot.edit_message_text('Для повторного старта бота введите /start',
+                                            int(i), int(globalVar[str(i)]['message_id']))
+                globalVar[str(i)]['message_id'] = None
+                globalVar[str(i)]['message_id_time_send'] = ''
+
+
+def repeat(coro, loop):
+    asyncio.ensure_future(coro(), loop=loop)
+    loop.call_later(3600, repeat, coro, loop)
+
+
 if __name__ == '__main__':
-    while True:
-        try:
-            bot.polling(none_stop=True)
-        except Exception as e:
-            print(f'где-то херня   {e}')
-            time.sleep(5)
+    loop = asyncio.get_event_loop()
+    loop.call_later(3600, repeat, check_for_editing_messages, loop)
+    executor.start_polling(dispatcher=dp, loop=loop)
