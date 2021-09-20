@@ -19,7 +19,7 @@ geolocator = Nominatim(user_agent="tg_bot")
 tconv = lambda x: time.strftime("%H:%M:%S %d.%m.%Y", time.localtime(x))
 globalVar = dict()
 
-token = '1916725688:AAFK3mBOtt3UoEyeco65JPjo4Hpy6g0MTWs'
+
 
 storage = MemoryStorage()
 bot = Bot(token=token)
@@ -956,6 +956,7 @@ async def error_func(id,bot_message_id):
         globalVar[str(id)]['photo_url'] = ''
         globalVar[str(id)]['meter'] = list()
         globalVar[str(id)]['help_message'] = list()
+        globalVar[str(id)]['help_message_time_send'] = ''
     try:
         await bot.delete_message(id, int(globalVar[str(id)]['error_messages']))
     except Exception:
@@ -985,6 +986,7 @@ async def send_welcome(message: types.Message):
         globalVar[str(message.chat.id)]['photo_url'] = ''
         globalVar[str(message.chat.id)]['meter'] = list()
         globalVar[str(message.chat.id)]['help_message'] = list()
+        globalVar[str(message.chat.id)]['help_message_time_send'] = ''
     if globalVar[str(message.chat.id)]['message_id'] == '':
         await bot.send_message(message.chat.id, 'Привет!\nЭтот бот сделан специально для жильцов домов УК Профессионал!\n\n'
                              'С его помощью вы можете оставить жалобу, поменять показания счётчиков'
@@ -1065,6 +1067,7 @@ async def help_command(message: types.Message):
         globalVar[str(message.chat.id)]['help_message'].append(id.message_id)
     a = await bot.send_message(message.chat.id, 'Если у вас остались вопросы в работе бота, напишите нам:\nsupport@prof-uk.ru', reply_markup=understand1())
     globalVar[str(message.chat.id)]['help_message'].append(a.message_id)
+    globalVar[str(message.chat.id)]['help_message_time_send'] = str(a.date)
 
 
 @dp.message_handler(content_types=['text', 'photo', 'video', 'document', 'audio', 'voice', 'sticker', 'contact'])
@@ -1444,6 +1447,7 @@ async def callback_query(call: types.CallbackQuery, state: FSMContext):
             for id in globalVar[str(cmcd)]['help_message']:
                 await bot.delete_message(cmcd, id)
             globalVar[str(cmcd)]['help_message'] = list()
+            globalVar[str(cmcd)]['help_message_time_send'] = ''
 
         await bot.answer_callback_query(call.id)
 
@@ -1455,6 +1459,7 @@ async def callback_query(call: types.CallbackQuery, state: FSMContext):
 async def check_for_editing_messages():
     for i in globalVar:
         mes = globalVar[str(i)]['message_id_time_send']
+        mes1 = globalVar[str(i)]['help_message_time_send']
         if mes != '':
             d1 = datetime.datetime.strptime(mes, "%Y-%m-%d %H:%M:%S")
             d2 = datetime.datetime.now()
@@ -1473,16 +1478,27 @@ async def check_for_editing_messages():
             if (d2 - d1).seconds >= 169200:
                 await bot.edit_message_text('Для повторного старта бота введите /start',
                                             int(i), int(globalVar[str(i)]['message_id']))
+                if globalVar[str(i)]['topic'] is not None:
+                    await bot.delete_message(int(i), int(globalVar[str(i)]['topic']))
+                    globalVar[str(i)]['topic'] = None
                 globalVar[str(i)]['message_id'] = None
                 globalVar[str(i)]['message_id_time_send'] = ''
+        if mes1 != '':
+            d1 = datetime.datetime.strptime(mes1, "%Y-%m-%d %H:%M:%S")
+            d2 = datetime.datetime.now()
+            if (d2 - d1).seconds >= 169200:
+                for id in globalVar[str(i)]['help_message']:
+                    await bot.delete_message(i, id)
+                globalVar[str(i)]['help_message'] = list()
+                globalVar[str(i)]['help_message_time_send'] = ''
 
 
 def repeat(coro, loop):
     asyncio.ensure_future(coro(), loop=loop)
-    loop.call_later(3600, repeat, coro, loop)
+    loop.call_later(1200, repeat, coro, loop)
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    loop.call_later(3600, repeat, check_for_editing_messages, loop)
+    loop.call_later(1200, repeat, check_for_editing_messages, loop)
     executor.start_polling(dispatcher=dp, loop=loop)
